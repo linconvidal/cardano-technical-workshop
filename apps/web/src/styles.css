@@ -1,0 +1,197 @@
+:root {
+  color: #272727;
+  background: #f2f2f2;
+  font-family: Switzer, "Helvetica Neue", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+.shell {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+.hero,
+.card {
+  border: 1px solid #d9d9d9;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgb(39 39 39 / 8%);
+  margin-bottom: 22px;
+  padding: 28px;
+}
+
+.wallet-card {
+  align-items: end;
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1.4fr 180px 150px;
+}
+
+.full-row {
+  grid-column: 1 / -1;
+}
+
+.eyebrow {
+  color: #d64a2e;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  font-size: clamp(2rem, 5vw, 4rem);
+  line-height: 0.96;
+  margin-bottom: 18px;
+}
+
+h2 {
+  font-size: 1.45rem;
+  margin-bottom: 10px;
+}
+
+h3 {
+  border-top: 1px solid #d9d9d9;
+  margin: 28px 0 14px;
+  padding-top: 22px;
+}
+
+.lead,
+.section-heading p,
+.wallet-card p {
+  color: #404040;
+  line-height: 1.6;
+}
+
+.form-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin: 20px 0;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  color: #272727;
+  font-weight: 700;
+}
+
+input,
+select,
+button,
+textarea {
+  border: 1px solid #d9d9d9;
+  border-radius: 14px;
+  font: inherit;
+  padding: 12px 14px;
+}
+
+input,
+select,
+textarea {
+  background: #fff;
+}
+
+button {
+  background: #272727;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+button:hover {
+  background: #404040;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 22px;
+}
+
+.artifact-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.artifact-grid.one-col {
+  grid-template-columns: 1fr;
+}
+
+.artifact {
+  display: grid;
+  gap: 8px;
+}
+
+.artifact-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.copy-button {
+  background: #f2f2f2;
+  color: #272727;
+  font-size: 0.82rem;
+  padding: 7px 10px;
+}
+
+textarea {
+  box-sizing: border-box;
+  color: #272727;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+  min-height: 140px;
+  resize: vertical;
+  width: 100%;
+}
+
+#log {
+  background: #272727;
+  border-radius: 16px;
+  color: #2bffb3;
+  min-height: 180px;
+  overflow: auto;
+  padding: 18px;
+  white-space: pre-wrap;
+}
+
+.mono {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: #808080;
+}
+
+code {
+  background: #f2f2f2;
+  border-radius: 6px;
+  padding: 2px 5px;
+}
+
+@media (max-width: 760px) {
+  .wallet-card {
+    grid-template-columns: 1fr;
+  }
+}

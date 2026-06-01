@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cardano Technical Workshop</title>
+    <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,700&display=swap" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Cardano Technical Workshop</p>
+        <h1>Workbench de transações Cardano</h1>
+        <p class="lead">
+          A página substitui o terminal da aula: cada botão produz artefatos visíveis. O backend constrói,
+          a wallet assina, a workbench mostra CBOR, witnesses, signed tx e tx hash.
+        </p>
+      </section>
+
+      <section class="card wallet-card">
+        <div>
+          <h2>0. Wallet</h2>
+          <p>Conecte a wallet CIP-30. A chave privada fica na extensão.</p>
+        </div>
+        <label>
+          Wallet
+          <select id="walletName">
+            <option value="eternl">Eternl</option>
+            <option value="lace">Lace</option>
+            <option value="nami">Nami</option>
+            <option value="typhoncip30">Typhon</option>
+          </select>
+        </label>
+        <button id="connectWallet">Conectar</button>
+        <p id="connectedAddress" class="mono muted full-row">Sem wallet conectada.</p>
+      </section>
+
+      <section class="card" id="paymentPanel">
+        <div class="section-heading">
+          <p class="eyebrow">Exercício 1</p>
+          <h2>Pagamento simples</h2>
+          <p>Primeiro fluxo: só inputs, output, fee e troco. Sem metadata, sem script.</p>
+        </div>
+        <div class="form-grid">
+          <label>Destinatário <input id="paymentRecipient" placeholder="addr_test..." /></label>
+          <label>Lovelace <input id="paymentLovelace" value="2000000" /></label>
+        </div>
+        <div class="actions">
+          <button id="paymentBuild">1. Construir unsigned tx</button>
+          <button id="paymentSign">2. Assinar com wallet</button>
+          <button id="paymentMerge">3. Anexar witness</button>
+          <button id="paymentSubmit">4. Submeter</button>
+        </div>
+        <div class="artifact-grid">
+          <artifact-box title="Build details" target="paymentDetails"></artifact-box>
+          <artifact-box title="Unsigned tx CBOR" target="paymentUnsigned"></artifact-box>
+          <artifact-box title="Witness set CBOR" target="paymentWitness"></artifact-box>
+          <artifact-box title="Signed tx CBOR" target="paymentSigned"></artifact-box>
+          <artifact-box title="Tx hash" target="paymentTxHash"></artifact-box>
+        </div>
+      </section>
+
+      <section class="card" id="metadataPanel">
+        <div class="section-heading">
+          <p class="eyebrow">Exercício 2</p>
+          <h2>Pagamento com metadata</h2>
+          <p>Mesmo pagamento, mas agora o backend adiciona <code>attachMetadata</code> no label 674.</p>
+        </div>
+        <div class="form-grid">
+          <label>Destinatário <input id="metadataRecipient" placeholder="addr_test..." /></label>
+          <label>Lovelace <input id="metadataLovelace" value="2000000" /></label>
+          <label class="wide">Mensagem <input id="metadataMessage" value="Hello, Cardano!" /></label>
+        </div>
+        <div class="actions">
+          <button id="metadataBuild">1. Construir tx com metadata</button>
+          <button id="metadataSign">2. Assinar</button>
+          <button id="metadataMerge">3. Anexar witness</button>
+          <button id="metadataSubmit">4. Submeter</button>
+        </div>
+        <div class="artifact-grid">
+          <artifact-box title="Build details" target="metadataDetails"></artifact-box>
+          <artifact-box title="Unsigned tx CBOR" target="metadataUnsigned"></artifact-box>
+          <artifact-box title="Witness set CBOR" target="metadataWitness"></artifact-box>
+          <artifact-box title="Signed tx CBOR" target="metadataSigned"></artifact-box>
+          <artifact-box title="Tx hash" target="metadataTxHash"></artifact-box>
+        </div>
+      </section>
+
+      <section class="card" id="mintPanel">
+        <div class="section-heading">
+          <p class="eyebrow">Exercício 3</p>
+          <h2>Mint CIP-25</h2>
+          <p>Policy nativa baseada na chave da wallet conectada. O backend constrói, a wallet autoriza o mint.</p>
+        </div>
+        <div class="form-grid">
+          <label class="wide">Recipient address <input id="mintRecipient" placeholder="addr_test..." /></label>
+          <label>Asset name <input id="mintTokenName" value="MyLittleToken" /></label>
+          <label>Quantidade <input id="mintAmount" value="1" /></label>
+          <label>Metadata name <input id="mintMetadataName" value="My Little Token" /></label>
+          <label class="wide">Image URI <input id="mintImage" value="ipfs://QmRhTTbUrPYEw3mJGGhQqQST9k86v1DPBiTTWJGKDJsVFw" /></label>
+          <label class="wide">Description <input id="mintDescription" value="This is a test token minted with a Cardano native script" /></label>
+        </div>
+        <div class="actions">
+          <button id="mintBuild">1. Construir mint tx</button>
+          <button id="mintSign">2. Assinar</button>
+          <button id="mintMerge">3. Anexar witness</button>
+          <button id="mintSubmit">4. Submeter</button>
+        </div>
+        <div class="artifact-grid">
+          <artifact-box title="Policy, asset e metadata" target="mintDetails"></artifact-box>
+          <artifact-box title="Unsigned mint tx CBOR" target="mintUnsigned"></artifact-box>
+          <artifact-box title="Witness set CBOR" target="mintWitness"></artifact-box>
+          <artifact-box title="Signed mint tx CBOR" target="mintSigned"></artifact-box>
+          <artifact-box title="Tx hash" target="mintTxHash"></artifact-box>
+        </div>
+      </section>
+
+      <section class="card" id="multisigPanel">
+        <div class="section-heading">
+          <p class="eyebrow">Exercício 4</p>
+          <h2>Multisig 2-de-2</h2>
+          <p>Use a página como bancada para copiar CBOR e witnesses entre signatários.</p>
+        </div>
+        <div class="form-grid">
+          <label class="wide">Segundo signer address <input id="multisigSecondSigner" placeholder="addr_test..." /></label>
+          <label>Valor para lock <input id="multisigLockLovelace" value="10000000" /></label>
+          <label>Valor para unlock <input id="multisigUnlockLovelace" value="2000000" /></label>
+          <label class="wide">Destino do unlock <input id="multisigDestination" placeholder="addr_test..." /></label>
+          <label class="wide">Script UTxO para unlock <input id="multisigScriptUtxo" placeholder="txhash#index. Liste UTxOs depois do lock." /></label>
+        </div>
+        <div class="actions">
+          <button id="multisigDescribe">0. Gerar script address</button>
+          <button id="multisigListUtxos">Listar UTxOs do script</button>
+        </div>
+        <div class="artifact-grid one-col">
+          <artifact-box title="Native script, script address e signers" target="multisigDetails"></artifact-box>
+          <artifact-box title="Script UTxOs disponíveis" target="multisigUtxos"></artifact-box>
+        </div>
+
+        <h3>4A. Lock ADA no script</h3>
+        <div class="actions">
+          <button id="multisigLockBuild">1. Construir lock tx</button>
+          <button id="multisigLockSign">2. Assinar lock</button>
+          <button id="multisigLockMerge">3. Anexar witness</button>
+          <button id="multisigLockSubmit">4. Submeter lock</button>
+        </div>
+        <div class="artifact-grid">
+          <artifact-box title="Lock details" target="multisigLockDetails"></artifact-box>
+          <artifact-box title="Unsigned lock tx CBOR" target="multisigLockUnsigned"></artifact-box>
+          <artifact-box title="Lock witness CBOR" target="multisigLockWitness"></artifact-box>
+          <artifact-box title="Signed lock tx CBOR" target="multisigLockSigned"></artifact-box>
+          <artifact-box title="Lock tx hash" target="multisigLockTxHash"></artifact-box>
+        </div>
+
+        <h3>4B. Unlock com duas assinaturas</h3>
+        <p class="muted">
+          O witness recebido vem do outro signer. Envie para ele o unsigned CBOR abaixo. Ele pode colar esse CBOR no
+          próprio campo <code>Unsigned unlock tx CBOR</code> e assinar com a wallet dele, ou usar o CLI <code>sign-cbor</code>.
+        </p>
+        <div class="actions">
+          <button id="multisigUnlockBuild">1. Construir unlock tx</button>
+          <button id="multisigUnlockSignA">2. Assinar CBOR colado com a wallet atual</button>
+          <button id="multisigUnlockMerge">3. Anexar meu witness + witness recebido</button>
+          <button id="multisigUnlockSubmit">4. Submeter unlock</button>
+        </div>
+        <div class="artifact-grid">
+          <artifact-box title="Unlock details" target="multisigUnlockDetails"></artifact-box>
+          <artifact-box title="Unsigned unlock tx CBOR" target="multisigUnlockUnsigned"></artifact-box>
+          <artifact-box title="Meu witness CBOR" target="multisigUnlockWitnessA"></artifact-box>
+          <artifact-box title="Witness recebido, cole aqui" target="multisigUnlockWitnessB"></artifact-box>
+          <artifact-box title="Signed unlock tx CBOR" target="multisigUnlockSigned"></artifact-box>
+          <artifact-box title="Unlock tx hash" target="multisigUnlockTxHash"></artifact-box>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Log da workbench</h2>
+        <pre id="log"></pre>
+      </section>
+    </main>
+
+    <template id="artifactTemplate">
+      <div class="artifact">
+        <div class="artifact-header">
+          <strong></strong>
+          <button type="button" class="copy-button">Copiar</button>
+        </div>
+        <textarea spellcheck="false"></textarea>
+      </div>
+    </template>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

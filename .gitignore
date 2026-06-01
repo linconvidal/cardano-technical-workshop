@@ -1,0 +1,20 @@
+# Build outputs and dependencies
+node_modules/
+dist/
+coverage/
+
+# Python legacy leftovers
+__pycache__/
+*.py[oc]
+.venv/
+build/
+wheels/
+*.egg-info
+
+# Local secrets and machine files
+.seedphrase
+seed.txt
+.env
+.env.*
+!.env.example
+.DS_Store
