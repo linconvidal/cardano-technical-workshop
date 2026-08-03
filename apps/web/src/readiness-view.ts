@@ -36,13 +36,46 @@ export const renderReadiness = (readiness: WorkbenchReadiness) => {
   )
 
   const message = select<HTMLElement>("#readinessMessage")
-  if (readiness.checking) message.textContent = "Verificando backend e Blockfrost Preprod..."
-  else if (readiness.error) message.textContent = `${readiness.error}. Confirme que npm run dev está em execução.`
-  else if (!response?.provider.configured) message.textContent = "Configure BLOCKFROST_PROJECT_ID no backend e reinicie a Workbench."
-  else if (!response.provider.healthy) message.textContent = "O Blockfrost Preprod está indisponível. Seus campos e artefatos continuam nesta aba; aguarde e tente novamente."
-  else if (!readiness.walletConnected) message.textContent = "Backend pronto. Conecte uma wallet configurada em Preprod."
-  else if (!response.wallet?.funded) message.textContent = "Wallet conectada, mas sem UTxO visível na Preprod. Confirme a rede e receba tADA."
-  else message.textContent = `Ambiente pronto. ${response.wallet.utxoCount} UTxO(s) encontrado(s) para esta wallet.`
+  if (readiness.checking) setReadinessMessage(message, "Verificando backend e Blockfrost Preprod...", "info")
+  else if (readiness.error) setReadinessMessage(
+    message,
+    `${readiness.error}. Confirme que npm run dev está em execução.`,
+    "error",
+  )
+  else if (!response?.provider.configured) setReadinessMessage(
+    message,
+    "Configure BLOCKFROST_PROJECT_ID no backend e reinicie a Workbench.",
+    "error",
+  )
+  else if (!response.provider.healthy) setReadinessMessage(
+    message,
+    "O Blockfrost Preprod está indisponível. Seus campos e artefatos continuam nesta aba; aguarde e tente novamente.",
+    "error",
+  )
+  else if (!readiness.walletConnected) setReadinessMessage(
+    message,
+    "Backend pronto. Conecte uma wallet configurada em Preprod.",
+    "info",
+  )
+  else if (!response.wallet?.funded) setReadinessMessage(
+    message,
+    "Wallet conectada, mas sem UTxO visível na Preprod. Confirme a rede e receba tADA.",
+    "warning",
+  )
+  else setReadinessMessage(
+    message,
+    `Ambiente pronto. ${response.wallet.utxoCount} UTxO(s) encontrado(s) para esta wallet.`,
+    "success",
+  )
+}
+
+const setReadinessMessage = (
+  element: HTMLElement,
+  text: string,
+  tone: "info" | "warning" | "error" | "success",
+) => {
+  element.textContent = text
+  element.dataset.tone = tone
 }
 
 const setReadinessItem = (

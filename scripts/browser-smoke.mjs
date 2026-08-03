@@ -40,6 +40,7 @@ try {
     progressSteps: document.querySelectorAll('#paymentPanel [data-progress-step]').length,
     activeStep: document.querySelector('#paymentPanel [data-progress-step][data-status="current"]')?.textContent?.trim(),
     readinessLabels: [...document.querySelectorAll('.readiness-list li')].map((node) => node.dataset.statusLabel),
+    readinessTone: document.querySelector('#readinessMessage')?.dataset.tone,
     faucetHref: document.querySelector('#walletHelp a')?.href,
     cborNemo: (() => {
       const link = document.querySelector('.inspection-tool a')
@@ -67,6 +68,7 @@ try {
   assert.equal(desktop.progressSteps, 5)
   assert.match(desktop.activeStep, /Construir/)
   assert.equal(desktop.readinessLabels.every(Boolean), true)
+  assert.equal(desktop.readinessTone, "error")
   assert.match(desktop.faucetHref, /^https:\/\/docs\.cardano\.org\/cardano-testnets\/tools\/faucet/)
   assert.equal(desktop.cborNemo.href, "https://cbor.nemo157.com/")
   assert.equal(desktop.cborNemo.visible, true)
@@ -130,10 +132,16 @@ try {
   assert.equal(narrowMobile.navLinks, 5)
 
   await evaluate(cdp, "document.querySelector('#paymentRecipient').focus(); document.activeElement.id")
-  const focused = await evaluate(cdp, "document.activeElement.id")
-  assert.equal(focused, "paymentRecipient")
+  const focused = await evaluate(cdp, `(() => {
+    const element = document.activeElement
+    const style = getComputedStyle(element)
+    return { id: element?.id, outlineColor: style.outlineColor, boxShadow: style.boxShadow }
+  })()`)
+  assert.equal(focused.id, "paymentRecipient")
+  assert.equal(focused.outlineColor, "rgb(39, 39, 39)")
+  assert.match(focused.boxShadow, /rgb\(0, 132, 255\)/)
 
-  console.log(JSON.stringify({ desktop, mobile, narrowMobile, unnamedControls: unnamedControls.length }, null, 2))
+  console.log(JSON.stringify({ desktop, mobile, narrowMobile, focused, unnamedControls: unnamedControls.length }, null, 2))
   cdp.close()
 } finally {
   chrome.kill("SIGTERM")

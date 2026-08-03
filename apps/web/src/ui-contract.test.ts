@@ -4,6 +4,7 @@ import test from "node:test"
 
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8")
 const server = readFileSync(new URL("../../api/src/server.ts", import.meta.url), "utf8")
+const styles = readFileSync(new URL("./styles.css", import.meta.url), "utf8")
 const flows = readFileSync(new URL("./workbench-flows.ts", import.meta.url), "utf8")
 const feature = readFileSync(new URL("../../../features/participant-led-workbench.feature", import.meta.url), "utf8")
 
@@ -67,10 +68,34 @@ test("setup exposes the external CBOR inspector", () => {
   assert.match(html, /target="_blank" rel="noreferrer"/)
 })
 
+test("visual tokens use the Cardano Foundation palette", () => {
+  for (const color of [
+    "#272727",
+    "#404040",
+    "#808080",
+    "#C6C6C6",
+    "#D9D9D9",
+    "#F2F2F2",
+    "#D64A2E",
+    "#FEF3F1",
+    "#0084FF",
+    "#00E0FF",
+    "#2BFFB3",
+    "#00BE7A",
+  ]) {
+    assert.match(styles, new RegExp(color, "i"))
+  }
+  for (const legacyColor of ["#24211f", "#e9e6e0", "#a93620", "#7f2818", "#fffdfa", "#f4f1ec"]) {
+    assert.doesNotMatch(styles, new RegExp(legacyColor, "i"))
+  }
+})
+
 test("status and failure feedback use live region semantics", () => {
   assert.match(html, /id="paymentStatus"[^>]*role="status"[^>]*aria-live="polite"/)
   assert.match(html, /id="paymentAlert"[^>]*role="alert"[^>]*tabindex="-1"/)
   assert.match(html, /id="paymentCompletion"[^>]*role="status"/)
+  assert.match(html, /id="readinessMessage"[^>]*data-tone="info"[^>]*role="status"/)
+  assert.match(readFileSync(new URL("./readiness-view.ts", import.meta.url), "utf8"), /"info" \| "warning" \| "error" \| "success"/)
 })
 
 test("behavioral scenarios cover readiness, invalidation, recovery, submission, resume, and multisig", () => {
