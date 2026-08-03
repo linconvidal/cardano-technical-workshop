@@ -83,7 +83,7 @@ export const mergeWitnesses = (
     bodyRequiredSigners.length > 0 &&
     !sameSet(bodyRequiredSigners, expectedSignerHashes.map((hash) => hash.toLowerCase()))
   ) {
-    throw new Error("Os required signers do CBOR não correspondem ao fluxo revisado")
+    throw new Error("Os required signers do CBOR não correspondem às chaves esperadas para esta transação")
   }
 
   const requiredSigners = expectedSignerHashes?.map((hash) => hash.toLowerCase()) ?? bodyRequiredSigners

@@ -39,7 +39,7 @@ export const renderReadiness = (readiness: WorkbenchReadiness) => {
   if (readiness.checking) message.textContent = "Verificando backend e Blockfrost Preprod..."
   else if (readiness.error) message.textContent = `${readiness.error}. Confirme que npm run dev está em execução.`
   else if (!response?.provider.configured) message.textContent = "Configure BLOCKFROST_PROJECT_ID no backend e reinicie a Workbench."
-  else if (!response.provider.healthy) message.textContent = "O Blockfrost Preprod não está pronto. Preserve seu estado e tente novamente."
+  else if (!response.provider.healthy) message.textContent = "O Blockfrost Preprod está indisponível. Seus campos e artefatos continuam nesta aba; aguarde e tente novamente."
   else if (!readiness.walletConnected) message.textContent = "Backend pronto. Conecte uma wallet configurada em Preprod."
   else if (!response.wallet?.funded) message.textContent = "Wallet conectada, mas sem UTxO visível na Preprod. Confirme a rede e receba tADA."
   else message.textContent = `Ambiente pronto. ${response.wallet.utxoCount} UTxO(s) encontrado(s) para esta wallet.`

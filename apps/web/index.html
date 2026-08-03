@@ -15,7 +15,7 @@
           <p class="eyebrow">Cardano Technical Workshop</p>
           <h1>Workbench de transações Cardano</h1>
           <p class="lead">
-            Construa, assine, inspecione e submeta transações na Cardano Preprod. A Workbench mostra cada artefato e informa o próximo passo. Você não precisa assistir a uma execução completa antes de começar.
+            Construa, assine, inspecione e submeta transações na Cardano Preprod.
           </p>
         </div>
         <div class="network-badge" aria-label="Rede usada pela Workbench">
@@ -88,13 +88,13 @@
         <header class="section-heading">
           <p class="eyebrow">Exercício 1</p>
           <h2 id="paymentTitle">Pagamento simples</h2>
-          <p>Observe o ciclo mínimo de uma transação antes de adicionar metadata, mint ou scripts.</p>
+          <p>Envie tADA e acompanhe o corpo sem assinatura, o witness, a transação assinada e a inclusão em bloco.</p>
         </header>
 
         <div class="exercise-contract">
           <div><span>Objetivo</span><p>Enviar uma quantidade definida de lovelace para outro endereço.</p></div>
           <div><span>Concluído quando</span><p>O hash aparecer como incluído em um bloco da Preprod.</p></div>
-          <div><span>Efeito da submissão</span><p>Gasta tADA e taxa da wallet conectada. A transferência não pode ser desfeita pela Workbench.</p></div>
+          <div><span>Efeito da submissão</span><p>Gasta tADA e taxa da wallet conectada. Depois de incluída, a transferência não pode ser desfeita.</p></div>
         </div>
 
         <div class="form-grid">
@@ -128,7 +128,7 @@
         </div>
 
         <div class="artifact-grid">
-          <artifact-box title="Detalhes da construção" target="paymentDetails" description="Inclui a intenção declarada e o resumo derivado do corpo da transação."></artifact-box>
+          <artifact-box title="Detalhes da construção" target="paymentDetails" description="Compare destinatário e valor informados com inputs, outputs, taxa e troco calculados."></artifact-box>
           <artifact-box title="Unsigned tx CBOR" target="paymentUnsigned" description="Corpo ainda sem autorização da wallet."></artifact-box>
           <artifact-box title="Witness set CBOR" target="paymentWitness" description="Assinatura específica para este corpo de transação."></artifact-box>
           <artifact-box title="Signed tx CBOR" target="paymentSigned" description="Transação pronta para revisão e submissão."></artifact-box>
@@ -156,7 +156,7 @@
         <header class="section-heading">
           <p class="eyebrow">Exercício 2</p>
           <h2 id="metadataTitle">Pagamento com metadata</h2>
-          <p>Repita o fluxo anterior e publique uma mensagem no label 674.</p>
+          <p>Envie tADA e publique uma mensagem no label 674 na mesma transação.</p>
         </header>
 
         <div class="exercise-contract">
@@ -298,7 +298,7 @@
             <li data-progress-step><span>2</span><div><strong>Coletar duas assinaturas</strong><small>Cada witness deve corresponder a uma das chaves exigidas.</small></div></li>
             <li data-progress-step><span>3</span><div><strong>Anexar</strong><small>A Workbench valida assinaturas, signers e corpo da transação.</small></div></li>
             <li data-progress-step><span>4</span><div><strong>Submeter</strong><small>Consome o UTxO escolhido e devolve o troco ao script.</small></div></li>
-            <li data-progress-step><span>5</span><div><strong>Confirmar</strong><small>O exercício termina após inclusão do unlock.</small></div></li>
+            <li data-progress-step><span>5</span><div><strong>Confirmar</strong><small>Verifique se o unlock foi incluído em um bloco da Preprod.</small></div></li>
           </ol>
           <p id="multisigUnlockStatus" class="flow-status" role="status" aria-live="polite"></p>
           <div id="multisigUnlockAlert" class="flow-alert" role="alert" tabindex="-1" hidden><strong class="alert-message"></strong><p class="alert-guidance"></p><details><summary>Detalhe técnico</summary><pre class="alert-technical"></pre></details></div>
@@ -311,7 +311,7 @@
           <div class="artifact-grid">
             <artifact-box title="Detalhes do unlock" target="multisigUnlockDetails" description="Mostra UTxO consumido, destino, signers e troco do script."></artifact-box>
             <artifact-box title="Unsigned unlock tx CBOR" target="multisigUnlockUnsigned" description="Signer A envia este CBOR ao signer B. Signer B pode colar aqui." editable></artifact-box>
-            <artifact-box title="Witness da wallet atual" target="multisigUnlockWitnessA" description="Copie e envie de volta se você estiver atuando como signer B."></artifact-box>
+            <artifact-box title="Witness da wallet atual" target="multisigUnlockWitnessA" description="Signer B copia este witness e o envia ao signer A."></artifact-box>
             <artifact-box title="Witness recebido" target="multisigUnlockWitnessB" description="Signer A cola aqui o witness devolvido pelo signer B." editable></artifact-box>
             <artifact-box title="Signed unlock tx CBOR" target="multisigUnlockSigned" description="Só é criado após validar as duas assinaturas exigidas."></artifact-box>
             <artifact-box title="Unlock tx hash" target="multisigUnlockTxHash" description="Identificador do unlock submetido."></artifact-box>
@@ -380,7 +380,7 @@
 
     <details class="card diagnostic-log">
         <summary>Log técnico da Workbench</summary>
-        <p>Use este log para diagnóstico. O estado e a recuperação aparecem junto de cada exercício.</p>
+        <p>Abra este log ao investigar uma falha ou ao pedir ajuda técnica.</p>
         <pre id="log"></pre>
       </details>
     </main>

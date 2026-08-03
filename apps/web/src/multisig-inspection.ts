@@ -22,7 +22,7 @@ export const inspectMultisigUnlock = (unsignedCbor: string): Record<string, unkn
 
   const nativeScripts = transaction.witnessSet.nativeScripts ?? []
   if (nativeScripts.length !== 1) {
-    throw new Error("O CBOR importado precisa conter somente o script nativo 2-de-2 revisado")
+    throw new Error("O CBOR importado precisa conter exatamente um script nativo 2-de-2")
   }
   const matchingScript = nativeScripts.find((nativeScript) => {
     if (nativeScript.script._tag !== "ScriptAll" || nativeScript.script.scripts.length !== 2) return false
