@@ -25,6 +25,7 @@ import {
   type FlowState,
 } from "./workbench-state.js"
 import { StatusPoller } from "./status-poller.js"
+import type { LogLevel, WorkbenchLogger } from "./technical-log.js"
 import { parseDetails, transactionHashFromCbor } from "./workbench-ui.js"
 
 export type FlowControllerConfig = FlowActionDependencies & {
@@ -46,7 +47,7 @@ export type FlowControllerConfig = FlowActionDependencies & {
   completion: string
   readiness: () => FlowReadiness
   onChange: () => void
-  log: (message: string) => void
+  log: WorkbenchLogger
 }
 
 export class FlowController {
@@ -162,7 +163,7 @@ export class FlowController {
         technicalDetail: error instanceof Error ? error.message : String(error),
         retryable: false,
       })
-      this.commit(`${this.config.title}: CBOR importado rejeitado.`)
+      this.commit(`${this.config.title}: CBOR importado rejeitado.`, "error")
       queueMicrotask(() => this.view.alert.focus())
     }
   }
@@ -304,7 +305,7 @@ export class FlowController {
     const mappedError = toFlowError(action, error)
     const flowError = forceNonRetryable ? { ...mappedError, retryable: false } : mappedError
     this.state = failAction(this.state, flowError)
-    this.commit(`${this.config.title}: ${flowError.message}`)
+    this.commit(`${this.config.title}: ${flowError.message}`, "error")
     queueMicrotask(() => this.view.alert.focus())
   }
 
@@ -337,8 +338,8 @@ export class FlowController {
     }
   }
 
-  private commit(logMessage?: string) {
-    if (logMessage) this.config.log(logMessage)
+  private commit(logMessage?: string, level: LogLevel = "info") {
+    if (logMessage) this.config.log(logMessage, level)
     this.render()
     this.config.onChange()
   }

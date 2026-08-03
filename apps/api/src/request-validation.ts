@@ -4,6 +4,8 @@ import { expectKeyHash } from "../../../packages/cardano/src/internal/addresses.
 import type {
   EacIssuanceMetadata,
   EacMintBuildParams,
+  EacRetireBuildParams,
+  EacRetirementMetadata,
   MetadataBuildParams,
   MintBuildParams,
   MultisigLockParams,
@@ -39,6 +41,11 @@ type MintRequest = {
 type EacMintRequest = {
   userAddress?: unknown
   recipientAddress?: unknown
+  metadataJson?: unknown
+}
+
+type EacRetireRequest = {
+  userAddress?: unknown
   metadataJson?: unknown
 }
 
@@ -86,10 +93,22 @@ export const parseMintRequest = (body: MintRequest = {}): MintBuildParams => ({
   description: requireBoundedString(body.description, "description", 2_048),
 })
 
-export const parseEacMintRequest = (body: EacMintRequest = {}): EacMintBuildParams => ({
+export const parseEacMintRequest = (body: EacMintRequest = {}): EacMintBuildParams => {
+  const userAddress = parseTestnetAddress(body.userAddress, "userAddress")
+  const recipientAddress = parseTestnetAddress(body.recipientAddress, "recipientAddress")
+  if (userAddress !== recipientAddress) {
+    throw new RequestValidationError(
+      "O saldo EAC do exercício precisa permanecer na wallet conectada",
+      "recipientAddress",
+      "Use o endereço da wallet conectada para permitir a aposentadoria posterior.",
+    )
+  }
+  return { userAddress, recipientAddress, metadata: parseEacIssuanceMetadata(body.metadataJson) }
+}
+
+export const parseEacRetireRequest = (body: EacRetireRequest = {}): EacRetireBuildParams => ({
   userAddress: parseTestnetAddress(body.userAddress, "userAddress"),
-  recipientAddress: parseTestnetAddress(body.recipientAddress, "recipientAddress"),
-  metadata: parseEacIssuanceMetadata(body.metadataJson),
+  metadata: parseEacRetirementMetadata(body.metadataJson),
 })
 
 export const parseMultisigRequest = (body: MultisigRequest = {}): MultisigParams => {
@@ -199,6 +218,36 @@ const parseEacIssuanceMetadata = (value: unknown): EacIssuanceMetadata => {
     methodology_hash: requireCanonicalHash(parsed.methodology_hash, "methodology_hash"),
     assurance_hash: requireCanonicalHash(parsed.assurance_hash, "assurance_hash"),
     evidence_root: requireCanonicalHash(parsed.evidence_root, "evidence_root"),
+  }
+}
+
+const parseEacRetirementMetadata = (value: unknown): EacRetirementMetadata => {
+  const raw = requireBoundedString(value, "metadataJson", 4_096)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new RequestValidationError("metadataJson precisa conter um objeto JSON válido", "metadataJson")
+  }
+  if (!isRecord(parsed)) {
+    throw new RequestValidationError("metadataJson precisa ser um objeto JSON", "metadataJson")
+  }
+  const expected = ["declaration_hash", "delivery_reference_hash", "version"]
+  const keys = Object.keys(parsed).sort()
+  if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) {
+    throw new RequestValidationError(
+      `metadataJson precisa conter exatamente: ${expected.join(", ")}`,
+      "metadataJson",
+      "Não duplique ação, asset name ou quantidade na metadata.",
+    )
+  }
+  if (parsed.version !== 1) {
+    throw new RequestValidationError("metadataJson precisa usar version 1", "metadataJson")
+  }
+  return {
+    version: 1,
+    declaration_hash: requireCanonicalHash(parsed.declaration_hash, "declaration_hash"),
+    delivery_reference_hash: requireCanonicalHash(parsed.delivery_reference_hash, "delivery_reference_hash"),
   }
 }
 

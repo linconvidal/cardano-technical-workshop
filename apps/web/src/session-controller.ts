@@ -1,6 +1,7 @@
 import type { WorkbenchFlowControllers } from "./workbench-flows.js"
 import type { FlowState } from "./workbench-state.js"
 import { parseSession, serializeSession } from "./workbench-session.js"
+import type { WorkbenchLogger } from "./technical-log.js"
 import { select, setVisible } from "./workbench-ui.js"
 
 const SESSION_KEY = "cardano-technical-workshop.session.v1"
@@ -9,7 +10,7 @@ type SessionControllerConfig = {
   flows: WorkbenchFlowControllers
   onRestored: () => void
   isBusy: () => boolean
-  log: (message: string) => void
+  log: WorkbenchLogger
 }
 
 export class SessionController {

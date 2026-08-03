@@ -17,6 +17,7 @@ import {
 import { RequestValidationError } from "./api-error.js"
 import {
   parseEacMintRequest,
+  parseEacRetireRequest,
   parseMultisigInputVerificationRequest,
   parseMultisigRequest,
   parsePaymentRequest,
@@ -81,7 +82,7 @@ test("rejects mainnet addresses, zero values, and unsafe numeric values", () => 
 
 test("parses the exact EAC issuance metadata schema", () => {
   const userAddress = keyAddress("1")
-  const recipientAddress = keyAddress("2")
+  const recipientAddress = userAddress
   const metadata = {
     version: 1,
     unit: "EAC",
@@ -109,7 +110,7 @@ test("rejects malformed or expanded EAC issuance metadata", () => {
   }
   const request = (metadataJson: string) => parseEacMintRequest({
     userAddress: keyAddress("1"),
-    recipientAddress: keyAddress("2"),
+    recipientAddress: keyAddress("1"),
     metadataJson,
   })
 
@@ -126,6 +127,39 @@ test("rejects malformed or expanded EAC issuance metadata", () => {
   assert.throws(() => request(JSON.stringify({ ...base, methodology_hash: "a".repeat(63) })), /64 caracteres/)
   assert.throws(() => request(JSON.stringify({ ...base, assurance_hash: "G".repeat(64) })), /hexadecimais minúsculos/)
   assert.throws(() => request(JSON.stringify({ ...base, evidence_root: "A".repeat(64) })), /hexadecimais minúsculos/)
+})
+
+test("EAC issuance keeps the illustrative balance in the connected wallet", () => {
+  const metadataJson = JSON.stringify({
+    version: 1,
+    unit: "EAC",
+    decimals: 3,
+    methodology_hash: "1".repeat(64),
+    assurance_hash: "2".repeat(64),
+    evidence_root: "3".repeat(64),
+  })
+  assert.throws(() => parseEacMintRequest({
+    userAddress: keyAddress("1"),
+    recipientAddress: keyAddress("2"),
+    metadataJson,
+  }), /wallet conectada/)
+})
+
+test("parses the exact EAC retirement metadata schema", () => {
+  const userAddress = keyAddress("1")
+  const metadata = {
+    version: 1 as const,
+    declaration_hash: "4".repeat(64),
+    delivery_reference_hash: "5".repeat(64),
+  }
+  assert.deepEqual(parseEacRetireRequest({
+    userAddress,
+    metadataJson: JSON.stringify(metadata),
+  }), { userAddress, metadata })
+  assert.throws(() => parseEacRetireRequest({
+    userAddress,
+    metadataJson: JSON.stringify({ ...metadata, quantity: "125000" }),
+  }), /exatamente/)
 })
 
 test("EAC issuance rejects mainnet addresses", () => {

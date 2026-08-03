@@ -1,5 +1,6 @@
 import { HttpError, postJson } from "./http.js"
 import { inputValue, renderJson, select, setVisible } from "./workbench-ui.js"
+import type { WorkbenchLogger } from "./technical-log.js"
 import type { WalletSession } from "./wallet.js"
 
 export type ScriptUtxo = {
@@ -17,7 +18,7 @@ type MultisigSetupConfig = {
   wallet: () => WalletSession | undefined
   onInputChange: () => void
   onSetupChange: () => void
-  log: (message: string) => void
+  log: WorkbenchLogger
 }
 
 export class MultisigSetupController {
@@ -221,7 +222,7 @@ export class MultisigSetupController {
       setVisible(this.alert, true)
       this.alert.focus()
       this.status.textContent = "Corrija o problema indicado e repita esta etapa."
-      this.config.log(`Multisig: ${message}`)
+      this.config.log(`Multisig: ${message}`, "error")
     } finally {
       if (generation !== this.generation) return
       this.busy = false

@@ -9,6 +9,7 @@ import {
 } from "./readiness.js"
 import { populateWalletOptions, renderReadiness } from "./readiness-view.js"
 import { SessionController } from "./session-controller.js"
+import { TechnicalLogController } from "./technical-log.js"
 import { createWorkbenchFlows } from "./workbench-flows.js"
 import { copyArtifact, hydrateArtifactBoxes, select } from "./workbench-ui.js"
 import { connectWallet, type WalletSession } from "./wallet.js"
@@ -19,7 +20,8 @@ const walletNameInput = select<HTMLSelectElement>("#walletName")
 const connectWalletButton = select<HTMLButtonElement>("#connectWallet")
 const addressOutput = select<HTMLElement>("#connectedAddress")
 const readinessMessage = select<HTMLElement>("#readinessMessage")
-const logOutput = select<HTMLPreElement>("#log")
+const technicalLog = new TechnicalLogController()
+const log = technicalLog.write
 
 let walletSession: WalletSession | undefined
 let readiness: WorkbenchReadiness = initialReadiness()
@@ -32,6 +34,13 @@ const flowControllers = createWorkbenchFlows({
   fundedReadiness: () => ({
     walletConnected: Boolean(walletSession),
     canBuild: canBuildTransactions(readiness),
+    backendReady: Boolean(readiness.response?.ok),
+  }),
+  eacRetirementReadiness: () => ({
+    walletConnected: Boolean(walletSession),
+    canBuild: Boolean(
+      canBuildTransactions(readiness) && flowControllers.eacMint.snapshot().stage === "included",
+    ),
     backendReady: Boolean(readiness.response?.ok),
   }),
   multisigLockReadiness: () => ({
@@ -47,7 +56,10 @@ const flowControllers = createWorkbenchFlows({
     backendReady: Boolean(readiness.response?.ok),
   }),
   multisigSetupReady: () => Boolean(multisigSetup?.isReadyForLock()),
-  onChange: () => sessionController?.save(),
+  onChange: () => {
+    sessionController?.save()
+    refreshControllers()
+  },
   log,
 })
 
@@ -90,6 +102,7 @@ function bindWalletControls() {
 
 async function handleConnectWallet() {
   if (multisigSetup?.isBusy() || Object.values(flowControllers).some((controller) => controller.isBusy())) {
+    readinessMessage.dataset.tone = "warning"
     readinessMessage.textContent = "Aguarde a etapa em andamento antes de trocar a wallet."
     return
   }
@@ -100,6 +113,7 @@ async function handleConnectWallet() {
   const previousAddress = walletSession?.address
   connectWalletButton.disabled = true
   connectWalletButton.setAttribute("aria-busy", "true")
+  readinessMessage.dataset.tone = "info"
   readinessMessage.textContent = "Aguardando autorização da extensão..."
 
   try {
@@ -113,8 +127,9 @@ async function handleConnectWallet() {
     walletSession = undefined
     multisigSetup?.invalidate("Conecte novamente o signer A e gere o script 2-de-2.")
     readiness = { ...readiness, walletConnected: false, walletAddress: undefined }
+    readinessMessage.dataset.tone = "error"
     readinessMessage.textContent = error instanceof Error ? error.message : String(error)
-    log(`Falha ao conectar wallet: ${readinessMessage.textContent}`)
+    log(`Falha ao conectar wallet: ${readinessMessage.textContent}`, "error")
   } finally {
     connectWalletButton.removeAttribute("aria-busy")
     populateWalletOptions(providerKey)
@@ -146,6 +161,7 @@ async function refreshReadiness(address?: string) {
       walletConnected: Boolean(walletSession),
       walletAddress: walletSession?.address,
     }
+    log(`Falha ao verificar o ambiente: ${readiness.error}`, "error")
   }
 
   renderReadiness(readiness)
@@ -157,6 +173,7 @@ function invalidateWalletBoundFlows(previousAddress: string | undefined, current
   flowControllers.metadata.revalidateWalletAddress(currentAddress)
   flowControllers.multisigLock.revalidateWalletAddress(currentAddress)
   flowControllers.eacMint.revalidateWalletAddress(currentAddress)
+  flowControllers.eacRetire.revalidateWalletAddress(currentAddress)
   flowControllers.mint.revalidateWalletAddress(currentAddress)
 
   if (!previousAddress || previousAddress === currentAddress) return
@@ -164,7 +181,11 @@ function invalidateWalletBoundFlows(previousAddress: string | undefined, current
 }
 
 function setDefaultAddresses(address: string) {
-  for (const id of ["paymentRecipient", "metadataRecipient", "multisigDestination", "eacMintRecipient", "mintRecipient"]) {
+  const eacRecipient = select<HTMLInputElement>("#eacMintRecipient")
+  eacRecipient.value = address
+  eacRecipient.dispatchEvent(new Event("input", { bubbles: true }))
+
+  for (const id of ["paymentRecipient", "metadataRecipient", "multisigDestination", "mintRecipient"]) {
     const input = select<HTMLInputElement>(`#${id}`)
     if (input.value.trim()) continue
     input.value = address
@@ -197,14 +218,9 @@ function bindCopyButtons() {
         .catch((error) => {
           button.textContent = "Falhou"
           clipboardStatus.textContent = `${label}: falhou. ${error instanceof Error ? error.message : String(error)}`
-          log(error instanceof Error ? error.message : String(error))
+          log(error instanceof Error ? error.message : String(error), "error")
         })
         .finally(() => window.setTimeout(() => { button.textContent = originalText }, 2_000))
     })
   })
-}
-
-function log(message: string) {
-  logOutput.textContent += `${new Date().toLocaleTimeString()}  ${message}\n`
-  logOutput.scrollTop = logOutput.scrollHeight
 }

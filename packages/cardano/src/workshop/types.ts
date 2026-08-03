@@ -38,6 +38,17 @@ export type EacMintBuildParams = {
   metadata: EacIssuanceMetadata
 }
 
+export type EacRetirementMetadata = {
+  version: 1
+  declaration_hash: string
+  delivery_reference_hash: string
+}
+
+export type EacRetireBuildParams = {
+  userAddress: string
+  metadata: EacRetirementMetadata
+}
+
 export type MultisigParams = {
   userAddress: string
   secondSignerAddress: string

@@ -27,6 +27,16 @@ Funcionalidade: Execução participante-led da Workbench Cardano
     Então unsigned CBOR, witnesses, signed CBOR, ciência e hash anteriores devem ser removidos
     E a Workbench deve instruir o participante a construir novamente
 
+  Cenário: Sinalizar erros no log técnico
+    Dado que o modal do log técnico está fechado
+    Quando uma etapa registrar um erro
+    Então o botão flutuante de debug deve mostrar a quantidade de erros não lidos
+    E seu nome acessível deve informar a mesma quantidade
+    Quando o participante abrir o log técnico
+    Então o modal deve mostrar o erro em ordem cronológica
+    E o marcador de atenção deve ser removido
+    E fechar o modal deve devolver o foco ao botão de debug
+
   Cenário: Recuperar uma assinatura recusada
     Dado que existe um unsigned CBOR válido
     Quando o participante recusar a solicitação de assinatura na wallet
@@ -111,6 +121,15 @@ Funcionalidade: Execução participante-led da Workbench Cardano
     E o label 65536 da faixa private use deve conter somente version, unit, decimals, methodology_hash, assurance_hash e evidence_root
     E asset name, ação e quantidade não devem ser duplicados na metadata
     E a revisão deve informar que a policy verifica a chave, mas não valida a metadata nem os fatos industriais
+
+  Cenário: Aposentar parte do saldo EAC
+    Dado que a emissão ilustrativa de 12088322 unidades foi incluída e indexada na wallet conectada
+    Quando construir a aposentadoria de 125000 unidades
+    Então o campo mint deve conter -125000
+    E o output da wallet deve conter 11963322 unidades restantes
+    E o label 65536 deve conter somente version, declaration_hash e delivery_reference_hash
+    E quantidade, ação e asset name não devem ser duplicados na metadata
+    E a revisão deve informar que a rede não prova a entrega nem a declaração
 
   Cenário: Rejeitar metadata EAC fora do schema
     Dado que o participante alterou o JSON raw da emissão EAC

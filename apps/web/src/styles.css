@@ -12,6 +12,7 @@
   --blue-1: #00E0FF;
   --green-1: #2BFFB3;
   --green-2: #00BE7A;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --accent: var(--red-1000);
   --accent-dark: var(--grey-1000);
   --ink: var(--grey-1000);
@@ -108,8 +109,8 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 summary:focus-visible {
-  box-shadow: 0 0 0 6px var(--focus);
-  outline: 3px solid var(--grey-1000);
+  box-shadow: none;
+  outline: 2px solid var(--grey-1000);
   outline-offset: 2px;
 }
 
@@ -408,7 +409,7 @@ small {
 
 .address-chip {
   background: var(--grey-200);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.8rem;
   overflow-wrap: anywhere;
 }
@@ -596,7 +597,7 @@ textarea {
 }
 
 .form-grid textarea {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.82rem;
   line-height: 1.45;
   resize: vertical;
@@ -759,7 +760,7 @@ input:invalid:not(:placeholder-shown) {
   border-radius: 0;
   border-top: 1px solid var(--line-soft);
   display: block;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.78rem;
   min-height: 180px;
   resize: vertical;
@@ -863,31 +864,117 @@ input:invalid:not(:placeholder-shown) {
   width: 16px;
 }
 
-.diagnostic-log summary {
-  cursor: pointer;
-  font-size: 1.1rem;
-  font-weight: 700;
+.floating-log-button {
+  border-radius: 50%;
+  bottom: max(20px, env(safe-area-inset-bottom));
+  box-shadow: 0 8px 28px var(--t-grey-150);
+  height: 54px;
+  padding: 0;
+  position: fixed;
+  right: max(20px, env(safe-area-inset-right));
+  width: 54px;
+  z-index: 20;
 }
 
-.diagnostic-log p {
+.debug-icon {
+  fill: none;
+  height: 26px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  width: 26px;
+}
+
+.floating-log-button[data-has-errors="true"] {
+  box-shadow: 0 0 0 3px var(--red-1000), 0 8px 28px var(--t-grey-150);
+}
+
+.log-attention-badge {
+  align-items: center;
+  background: var(--red-50);
+  border: 2px solid var(--red-1000);
+  border-radius: 999px;
+  color: var(--grey-1000);
+  display: inline-flex;
+  font-size: 0.72rem;
+  font-weight: 700;
+  height: 24px;
+  justify-content: center;
+  min-width: 24px;
+  padding: 0 5px;
+  position: absolute;
+  right: -7px;
+  top: -7px;
+}
+
+.technical-log-dialog {
+  background: var(--grey-50);
+  border: 1px solid var(--grey-800);
+  border-radius: 18px;
+  color: var(--ink);
+  max-height: min(82vh, 760px);
+  max-width: 760px;
+  padding: 0;
+  width: calc(100% - 32px);
+}
+
+.technical-log-dialog::backdrop {
+  background: rgb(39 39 39 / 72%);
+}
+
+.technical-log-shell {
+  display: grid;
+  grid-template-rows: auto minmax(180px, 1fr);
+  max-height: min(82vh, 760px);
+  overflow: hidden;
+}
+
+.technical-log-header {
+  align-items: center;
+  border-bottom: 1px solid var(--grey-400);
+  display: flex;
+  gap: 20px;
+  justify-content: space-between;
+  padding: 18px 20px;
+}
+
+.technical-log-header h2 {
+  font-size: 1.45rem;
+  margin-bottom: 5px;
+}
+
+.technical-log-header p {
   color: var(--muted);
-  margin: 12px 0;
+  margin: 0;
 }
 
 #log {
   background: var(--ink);
-  border-radius: 14px;
   color: var(--green-1);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-  min-height: 180px;
+  font-family: var(--font-mono);
+  margin: 0;
+  min-height: 240px;
   overflow: auto;
-  padding: 16px;
+  padding: 18px 20px;
   white-space: pre-wrap;
+}
+
+.log-entry {
+  display: block;
+}
+
+.log-entry[data-level="error"] {
+  border-left: 3px solid var(--red-1000);
+  color: var(--grey-50);
+  margin: 3px 0;
+  padding-left: 9px;
 }
 
 code {
   background: var(--grey-200);
   border-radius: 5px;
+  font-family: var(--font-mono);
   padding: 2px 5px;
 }
 
@@ -972,6 +1059,24 @@ code {
   .resume-banner {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .floating-log-button {
+    bottom: max(12px, env(safe-area-inset-bottom));
+    right: max(12px, env(safe-area-inset-right));
+  }
+
+  .technical-log-dialog {
+    max-height: calc(100dvh - 20px);
+    width: calc(100% - 20px);
+  }
+
+  .technical-log-shell {
+    max-height: calc(100dvh - 20px);
+  }
+
+  .technical-log-header {
+    align-items: center;
   }
 
   .actions > button,

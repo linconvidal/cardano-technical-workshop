@@ -7,7 +7,10 @@ import {
   EAC_ASSET_NAME,
   EAC_ISSUANCE_AMOUNT,
   EAC_METADATA_LABEL,
+  EAC_REMAINING_AMOUNT,
+  EAC_RETIREMENT_AMOUNT,
   eacIssuanceMetadata,
+  eacRetirementMetadata,
   makeEacMintPolicy,
 } from "./04a-mint-eac.js"
 
@@ -24,6 +27,8 @@ test("EAC issuance constants match the ADR-002 accounting unit", () => {
   assert.equal(EAC_ASSET_NAME, "EAC-BRE-2025P01")
   assert.equal(EAC_ISSUANCE_AMOUNT, 12_088_322n)
   assert.equal(EAC_METADATA_LABEL, 65_536n)
+  assert.equal(EAC_RETIREMENT_AMOUNT, 125_000n)
+  assert.equal(EAC_REMAINING_AMOUNT, 11_963_322n)
 })
 
 test("EAC issuance metadata contains exactly the raw evidence schema", () => {
@@ -38,6 +43,22 @@ test("EAC issuance metadata contains exactly the raw evidence schema", () => {
     ["evidence_root", fixtureMetadata.evidence_root],
   ])
   assert.equal(metadata.has("asset_name"), false)
+  assert.equal(metadata.has("action"), false)
+  assert.equal(metadata.has("quantity"), false)
+})
+
+test("EAC retirement metadata links declaration and delivery without accounting duplication", () => {
+  const metadata = eacRetirementMetadata({
+    version: 1,
+    declaration_hash: "4".repeat(64),
+    delivery_reference_hash: "5".repeat(64),
+  })
+
+  assert.deepEqual([...metadata], [
+    ["version", 1n],
+    ["declaration_hash", "4".repeat(64)],
+    ["delivery_reference_hash", "5".repeat(64)],
+  ])
   assert.equal(metadata.has("action"), false)
   assert.equal(metadata.has("quantity"), false)
 })

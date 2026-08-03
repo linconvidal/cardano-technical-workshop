@@ -15,7 +15,10 @@ import {
 import { buildPaymentTx } from "../../../packages/cardano/src/workshop/01-payment.js"
 import { buildMetadataTx } from "../../../packages/cardano/src/workshop/02-metadata.js"
 import { buildMintTx } from "../../../packages/cardano/src/workshop/03-mint-cip25.js"
-import { buildEacMintTx } from "../../../packages/cardano/src/workshop/04a-mint-eac.js"
+import {
+  buildEacMintTx,
+  buildEacRetirementTx,
+} from "../../../packages/cardano/src/workshop/04a-mint-eac.js"
 import {
   buildMultisigLockTx,
   buildMultisigUnlockTx,
@@ -26,6 +29,7 @@ import {
 import { ApiError, type ApiProblem } from "./api-error.js"
 import {
   parseEacMintRequest,
+  parseEacRetireRequest,
   parseMetadataRequest,
   parseMintRequest,
   parseMultisigInputVerificationRequest,
@@ -90,6 +94,10 @@ app.post("/api/workshop/02-metadata", asyncRoute(async (req, res) => {
 
 app.post("/api/workshop/04a-mint-eac", asyncRoute(async (req, res) => {
   res.json(await buildEacMintTx(parseEacMintRequest(req.body)))
+}))
+
+app.post("/api/workshop/04a-retire-eac", asyncRoute(async (req, res) => {
+  res.json(await buildEacRetirementTx(parseEacRetireRequest(req.body)))
 }))
 
 for (const path of [

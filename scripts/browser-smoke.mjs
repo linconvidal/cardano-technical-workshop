@@ -55,6 +55,13 @@ try {
       return { recipient: rect(recipient), lovelace: rect(lovelace), recipientLabel: rect(recipientLabel), lovelaceLabel: rect(lovelaceLabel) }
     })(),
     eacMetadataKeys: Object.keys(JSON.parse(document.querySelector('#eacMintMetadataJson')?.value ?? '{}')).sort(),
+    technicalLog: {
+      buttonLabel: document.querySelector('#technicalLogButton')?.getAttribute('aria-label'),
+      badgeHidden: document.querySelector('#technicalLogBadge')?.hidden,
+      dialogOpen: document.querySelector('#technicalLogDialog')?.open,
+      debugIcon: Boolean(document.querySelector('#technicalLogButton .debug-icon')),
+      fontFamily: getComputedStyle(document.querySelector('#log')).fontFamily,
+    },
     multisigSetupAcknowledgement: Boolean(document.querySelector('#multisigSetupAcknowledge')),
   }))()`)
 
@@ -76,7 +83,68 @@ try {
   assert.ok(Math.abs(desktop.paymentFieldGeometry.recipient.height - desktop.paymentFieldGeometry.lovelace.height) <= 1)
   assert.ok(Math.abs(desktop.paymentFieldGeometry.recipientLabel.height - desktop.paymentFieldGeometry.lovelaceLabel.height) <= 1)
   assert.deepEqual(desktop.eacMetadataKeys, ["assurance_hash", "decimals", "evidence_root", "methodology_hash", "unit", "version"])
+  assert.deepEqual(desktop.technicalLog, {
+    buttonLabel: "Abrir log técnico",
+    badgeHidden: true,
+    dialogOpen: false,
+    debugIcon: true,
+    fontFamily: '"JetBrains Mono", ui-monospace, monospace',
+  })
   assert.equal(desktop.multisigSetupAcknowledgement, true)
+
+  const logAttention = await evaluate(cdp, `(async () => {
+    const recipient = document.querySelector('#paymentRecipient')
+    recipient.value = 'addr_test1smoke'
+    recipient.dispatchEvent(new Event('input', { bubbles: true }))
+    const build = document.querySelector('#paymentBuild')
+    build.disabled = false
+    build.click()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    const badge = document.querySelector('#technicalLogBadge')
+    const button = document.querySelector('#technicalLogButton')
+    return {
+      badgeHidden: badge.hidden,
+      badgeText: badge.textContent,
+      buttonLabel: button.getAttribute('aria-label'),
+      hasErrors: button.dataset.hasErrors,
+    }
+  })()`)
+  assert.deepEqual(logAttention, {
+    badgeHidden: false,
+    badgeText: "1",
+    buttonLabel: "Abrir log técnico, 1 erro não lido",
+    hasErrors: "true",
+  })
+
+  const openedLog = await evaluate(cdp, `(() => {
+    document.querySelector('#technicalLogButton').click()
+    const dialog = document.querySelector('#technicalLogDialog')
+    const badge = document.querySelector('#technicalLogBadge')
+    return {
+      open: dialog.open,
+      activeElement: document.activeElement?.id,
+      badgeHidden: badge.hidden,
+      hasErrorEntry: Boolean(document.querySelector('#log .log-entry[data-level="error"]')),
+      logText: document.querySelector('#log').textContent,
+    }
+  })()`)
+  assert.equal(openedLog.open, true)
+  assert.equal(openedLog.activeElement, "technicalLogClose")
+  assert.equal(openedLog.badgeHidden, true)
+  assert.equal(openedLog.hasErrorEntry, true)
+  assert.match(openedLog.logText, /Pagamento simples/)
+
+  const closedLog = await evaluate(cdp, `(async () => {
+    const dialog = document.querySelector('#technicalLogDialog')
+    const closed = new Promise((resolve) => dialog.addEventListener('close', resolve, { once: true }))
+    document.querySelector('#technicalLogClose').click()
+    await closed
+    return {
+      open: dialog.open,
+      activeElement: document.activeElement?.id,
+    }
+  })()`)
+  assert.deepEqual(closedLog, { open: false, activeElement: "technicalLogButton" })
 
   const accessibility = await cdp.send("Accessibility.getFullAXTree")
   const unnamedControls = accessibility.nodes.filter((node) =>
@@ -131,17 +199,54 @@ try {
   assert.equal(narrowMobile.navHorizontalOverflow, false)
   assert.equal(narrowMobile.navLinks, 5)
 
+  const narrowModal = await evaluate(cdp, `(async () => {
+    const dialog = document.querySelector('#technicalLogDialog')
+    document.querySelector('#technicalLogButton').click()
+    const closeButton = document.querySelector('#technicalLogClose')
+    const dialogRect = dialog.getBoundingClientRect()
+    const closeRect = closeButton.getBoundingClientRect()
+    const closed = new Promise((resolve) => dialog.addEventListener('close', resolve, { once: true }))
+    closeButton.click()
+    await closed
+    return {
+      dialogWidth: dialogRect.width,
+      dialogHeight: dialogRect.height,
+      closeWidth: closeRect.width,
+      closeHeight: closeRect.height,
+    }
+  })()`)
+  assert.ok(narrowModal.dialogWidth <= 300)
+  assert.ok(narrowModal.dialogHeight <= 700)
+  assert.ok(narrowModal.closeWidth <= 90)
+  assert.ok(narrowModal.closeHeight <= 48)
+
   await evaluate(cdp, "document.querySelector('#paymentRecipient').focus(); document.activeElement.id")
   const focused = await evaluate(cdp, `(() => {
     const element = document.activeElement
     const style = getComputedStyle(element)
-    return { id: element?.id, outlineColor: style.outlineColor, boxShadow: style.boxShadow }
+    return {
+      id: element?.id,
+      outlineColor: style.outlineColor,
+      outlineWidth: style.outlineWidth,
+      boxShadow: style.boxShadow,
+    }
   })()`)
   assert.equal(focused.id, "paymentRecipient")
   assert.equal(focused.outlineColor, "rgb(39, 39, 39)")
-  assert.match(focused.boxShadow, /rgb\(0, 132, 255\)/)
+  assert.equal(focused.outlineWidth, "2px")
+  assert.equal(focused.boxShadow, "none")
 
-  console.log(JSON.stringify({ desktop, mobile, narrowMobile, focused, unnamedControls: unnamedControls.length }, null, 2))
+  console.log(JSON.stringify({
+    desktop,
+    logAttention,
+    openedLog: { ...openedLog, logText: "[captured]" },
+    closedLog,
+    mobile,
+    narrowMobile,
+    narrowModal,
+    focused,
+    unnamedControls: unnamedControls.length,
+  }, null, 2))
   cdp.close()
 } finally {
   chrome.kill("SIGTERM")

@@ -6,7 +6,10 @@
     <meta name="color-scheme" content="light" />
     <title>Cardano Technical Workshop</title>
     <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" />
   </head>
   <body>
     <main class="shell">
@@ -335,24 +338,24 @@
       <section class="card exercise-card" id="eacMintPanel" aria-labelledby="eacMintTitle">
         <header class="section-heading">
           <p class="eyebrow">Exercício 4A</p>
-          <h2 id="eacMintTitle">Emissão EAC com metadata raw</h2>
-          <p>Emita o Native Asset do período de assurance de Brevik e anexe os hashes de metodologia, assurance e raiz de evidências.</p>
+          <h2 id="eacMintTitle">Ciclo EAC: emissão e aposentadoria</h2>
+          <p>Execute um exemplo Cardano inspirado no caso Brevik. A quantidade é ilustrativa e não representa a oferta alocável publicada pela Heidelberg Materials.</p>
         </header>
         <div class="exercise-contract">
-          <div><span>Objetivo</span><p>Emitir 12088322 unidades EAC para o endereço contábil e publicar três referências de evidência na metadata.</p></div>
-          <div><span>Concluído quando</span><p>A transação estiver incluída, com 12088322 no campo mint e o payload no label 65536.</p></div>
+          <div><span>Objetivo</span><p>Emitir 12088322 unidades ilustrativas, aposentar 125000 e reconstruir o saldo restante de 11963322 unidades.</p></div>
+          <div><span>Concluído quando</span><p>Mint e burn estiverem incluídos, com as referências externas no label 65536 e as quantidades no ledger.</p></div>
           <div><span>Limite</span><p>A API valida o schema. A policy verifica somente a chave; não lê a metadata, não limita a oferta e não prova os fatos industriais.</p></div>
         </div>
         <dl class="mint-spec" aria-label="Parâmetros fixos da emissão EAC">
           <div><dt>Asset name</dt><dd><code>EAC-BRE-2025P01</code></dd></div>
-          <div><dt>Quantidade on-chain</dt><dd><code>12088322</code></dd></div>
+          <div><dt>Quantidade ilustrativa on-chain</dt><dd><code>12088322</code></dd></div>
           <div><dt>Exibição</dt><dd>12.088,322 EAC</dd></div>
           <div><dt>Metadata label</dt><dd><code>65536</code>, private use CIP-10. A metadata continua pública.</dd></div>
         </dl>
         <div class="form-grid">
           <label class="wide" for="eacMintRecipient">Endereço contábil que receberá o saldo
-            <input id="eacMintRecipient" data-session-input required placeholder="addr_test..." autocomplete="off" />
-            <small>O output mantém o saldo disponível. Ele não prova uma alocação ao comprador.</small>
+            <input id="eacMintRecipient" data-session-input required readonly placeholder="Conecte a wallet" autocomplete="off" />
+            <small>O saldo permanece na wallet conectada para que ela possa construir o burn posterior.</small>
           </label>
           <label class="wide" for="eacMintMetadataJson">Metadata JSON de emissão
             <textarea id="eacMintMetadataJson" data-session-input required rows="10" maxlength="4096" spellcheck="false">{
@@ -386,6 +389,46 @@
         <section class="submit-review"><h3>Revisão antes da submissão</h3><p id="eacMintSubmitSummary">Construa e assine a emissão EAC para ver o resumo.</p><label class="acknowledgement" for="eacMintAcknowledge"><input id="eacMintAcknowledge" type="checkbox" />Conferi endereço contábil, quantidade, policy, validade e referências. Entendo que a policy não valida a metadata nem os fatos industriais externos.</label><div class="actions"><button id="eacMintSubmit" type="button">4. Submeter emissão</button><button id="eacMintCheck" type="button" class="secondary">Verificar inclusão</button><a id="eacMintExplorer" class="button-link" target="_blank" rel="noreferrer" hidden>Ver no Cardanoscan</a></div></section>
         <p id="eacMintCompletion" class="completion" role="status" hidden></p>
         <div class="recovery-actions"><button id="eacMintRetry" type="button" hidden>Tentar novamente</button><button id="eacMintReset" type="button" class="secondary" hidden>Reiniciar emissão</button></div>
+
+        <section class="subflow" id="eacRetirePanel" aria-labelledby="eacRetireTitle">
+          <h3 id="eacRetireTitle">4A.2 Aposente 125,000 EAC</h3>
+          <p>Depois que a emissão estiver incluída e indexada, queime 125000 unidades e mantenha 11963322 unidades na wallet contábil.</p>
+          <dl class="mint-spec" aria-label="Parâmetros fixos da aposentadoria EAC">
+            <div><dt>Burn</dt><dd><code>-125000</code></dd></div>
+            <div><dt>Exibição aposentada</dt><dd>125,000 EAC</dd></div>
+            <div><dt>Saldo restante</dt><dd>11.963,322 EAC</dd></div>
+          </dl>
+          <div class="form-grid">
+            <label class="wide" for="eacRetireMetadataJson">Metadata JSON de aposentadoria
+              <textarea id="eacRetireMetadataJson" data-session-input required rows="6" maxlength="4096" spellcheck="false">{
+  "version": 1,
+  "declaration_hash": "4444444444444444444444444444444444444444444444444444444444444444",
+  "delivery_reference_hash": "5555555555555555555555555555555555555555555555555555555555555555"
+}</textarea>
+              <small>Hashes sintéticos do exercício. Quantidade, ação e asset name permanecem fora da metadata.</small>
+            </label>
+          </div>
+          <ol class="pipeline" aria-label="Progresso da aposentadoria EAC">
+            <li data-progress-step><span>1</span><div><strong>Construir</strong><small>Localiza o saldo da wallet, cria o burn e devolve o restante.</small></div></li>
+            <li data-progress-step><span>2</span><div><strong>Assinar</strong><small>A mesma chave satisfaz a policy estável.</small></div></li>
+            <li data-progress-step><span>3</span><div><strong>Anexar</strong><small>Valida e adiciona o witness à aposentadoria.</small></div></li>
+            <li data-progress-step><span>4</span><div><strong>Submeter</strong><small>Publica o burn e as referências externas.</small></div></li>
+            <li data-progress-step><span>5</span><div><strong>Confirmar</strong><small>Verifique burn, saldo restante e label 65536.</small></div></li>
+          </ol>
+          <p id="eacRetireStatus" class="flow-status" role="status" aria-live="polite"></p>
+          <div id="eacRetireAlert" class="flow-alert" role="alert" tabindex="-1" hidden><strong class="alert-message"></strong><p class="alert-guidance"></p><details><summary>Detalhe técnico</summary><pre class="alert-technical"></pre></details></div>
+          <div class="actions"><button id="eacRetireBuild" type="button">1. Construir aposentadoria</button><button id="eacRetireSign" type="button">2. Assinar com a wallet</button><button id="eacRetireMerge" type="button">3. Anexar witness</button></div>
+          <div class="artifact-grid">
+            <artifact-box title="Policy, burn e metadata" target="eacRetireDetails" description="Inclui policy id, burn, saldo restante e referências de aposentadoria."></artifact-box>
+            <artifact-box title="Unsigned retirement tx CBOR" target="eacRetireUnsigned" description="Aposentadoria antes da autorização da wallet."></artifact-box>
+            <artifact-box title="Witness set CBOR" target="eacRetireWitness" description="Assinatura da chave exigida pela policy."></artifact-box>
+            <artifact-box title="Signed retirement tx CBOR" target="eacRetireSigned" description="Burn pronto para submissão."></artifact-box>
+            <artifact-box title="Retirement tx hash" target="eacRetireTxHash" description="Identificador para verificar burn, saldo e metadata."></artifact-box>
+          </div>
+          <section class="submit-review"><h4>Revisão da aposentadoria</h4><p id="eacRetireSubmitSummary">Construa e assine a aposentadoria EAC para ver o resumo.</p><label class="acknowledgement" for="eacRetireAcknowledge"><input id="eacRetireAcknowledge" type="checkbox" />Conferi burn, saldo restante, policy e referências. Entendo que a rede não prova a entrega nem a declaração.</label><div class="actions"><button id="eacRetireSubmit" type="button">4. Submeter aposentadoria</button><button id="eacRetireCheck" type="button" class="secondary">Verificar inclusão</button><a id="eacRetireExplorer" class="button-link" target="_blank" rel="noreferrer" hidden>Ver no Cardanoscan</a></div></section>
+          <p id="eacRetireCompletion" class="completion" role="status" hidden></p>
+          <div class="recovery-actions"><button id="eacRetireRetry" type="button" hidden>Tentar novamente</button><button id="eacRetireReset" type="button" class="secondary" hidden>Reiniciar aposentadoria</button></div>
+        </section>
       </section>
 
       <section class="card exercise-card" id="mintPanel" aria-labelledby="mintTitle">
@@ -443,13 +486,37 @@
       </section>
 
       <p id="clipboardStatus" class="sr-only" role="status" aria-live="polite"></p>
-
-    <details class="card diagnostic-log">
-        <summary>Log técnico da Workbench</summary>
-        <p>Abra este log ao investigar uma falha ou ao pedir ajuda técnica.</p>
-        <pre id="log"></pre>
-      </details>
     </main>
+
+    <button
+      id="technicalLogButton"
+      class="floating-log-button"
+      type="button"
+      aria-haspopup="dialog"
+      aria-controls="technicalLogDialog"
+      aria-label="Abrir log técnico"
+      data-has-errors="false"
+    >
+      <svg class="debug-icon" viewBox="0 0 24 24" aria-hidden="true">
+        <ellipse cx="12" cy="13" rx="5" ry="7"></ellipse>
+        <path d="M12 6V3M9 4 7 2M15 4l2-2M7 10H3M21 10h-4M7 14H3M21 14h-4M8 18l-3 3M16 18l3 3M12 9v11"></path>
+      </svg>
+      <span id="technicalLogBadge" class="log-attention-badge" aria-hidden="true" hidden>0</span>
+    </button>
+    <p id="technicalLogAnnouncement" class="sr-only" role="status" aria-live="polite"></p>
+
+    <dialog id="technicalLogDialog" class="technical-log-dialog" aria-labelledby="technicalLogTitle" aria-describedby="technicalLogDescription">
+      <div class="technical-log-shell">
+        <header class="technical-log-header">
+          <div>
+            <h2 id="technicalLogTitle">Log técnico</h2>
+            <p id="technicalLogDescription">Eventos desta aba em ordem cronológica.</p>
+          </div>
+          <button id="technicalLogClose" type="button" class="secondary">Fechar</button>
+        </header>
+        <pre id="log" role="log" aria-label="Eventos técnicos da Workbench" aria-live="off" tabindex="0"></pre>
+      </div>
+    </dialog>
 
     <template id="artifactTemplate">
       <details class="artifact">

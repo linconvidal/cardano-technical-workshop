@@ -185,14 +185,14 @@ O unlock envia o valor escolhido ao destino e devolve o troco ao script. A rodad
 
 ## 9. Exercício 4: dois modelos de Native Asset
 
-### 9.1 Exercício 4A: emissão EAC com metadata raw
+### 9.1 Exercício 4A: emissão e aposentadoria EAC
 
-Este exercício implementa a emissão inicial descrita na ADR-002:
+Este exercício implementa um ciclo contábil ilustrativo inspirado na ADR-002. Os números não representam a oferta alocável publicada pela Heidelberg Materials:
 
 - asset name fixo `EAC-BRE-2025P01`;
-- quantidade on-chain `12088322`;
+- quantidade ilustrativa on-chain `12088322`;
 - exibição da aplicação `12.088,322 EAC`, com três casas decimais;
-- endereço contábil que mantém o saldo disponível;
+- wallet conectada como endereço contábil que mantém o saldo disponível;
 - policy estável baseada na chave da wallet;
 - validade aproximada de três horas somente para a transação atual;
 - metadata no label `65536`, reservado pela CIP-10 para private use.
@@ -214,6 +214,16 @@ A API exige os seis campos e hashes hexadecimais minúsculos de 64 caracteres. E
 
 Os valores padrão dos hashes são fixtures sintéticas. Não os descreva como evidências da Heidelberg Materials ou da DNV. O label private use evita colisão com `674` e `721`, mas não torna o conteúdo privado ou confidencial.
 
+Depois da inclusão e indexação da emissão, a aposentadoria cria `-125000` no campo mint e devolve `11963322` unidades à wallet. Sua metadata contém somente:
+
+```json
+{
+  "version": 1,
+  "declaration_hash": "...",
+  "delivery_reference_hash": "..."
+}
+```
+
 Perguntas:
 
 - Onde a quantidade aparece e por que ela não é repetida na metadata?
@@ -221,8 +231,6 @@ Perguntas:
 - O que a chave autorizada prova?
 - O que os hashes conectam sem provar?
 - Por que a policy id permanece igual quando a validade da transação muda?
-
-Este recorte cobre somente emissão. A aposentadoria exige uma transação separada com quantidade negativa no campo mint, saldo remanescente e referências de declaração e entrega.
 
 ### 9.2 Exercício 4B: media token com CIP-25
 

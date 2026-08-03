@@ -7,23 +7,26 @@ import { postJson } from "./http.js"
 import { inspectMultisigUnlock } from "./multisig-inspection.js"
 import {
   eacMintReview,
+  eacRetireReview,
   metadataReview,
   mintReview,
   multisigLockReview,
   multisigUnlockReview,
   paymentReview,
 } from "./review-summary.js"
+import type { WorkbenchLogger } from "./technical-log.js"
 import { inputValue, type TxBuildResponse } from "./workbench-ui.js"
 import { signWithWallet, type WalletSession } from "./wallet.js"
 
 export type WorkbenchFlowDependencies = {
   wallet: () => WalletSession
   fundedReadiness: () => FlowReadiness
+  eacRetirementReadiness: () => FlowReadiness
   multisigLockReadiness: () => FlowReadiness
   scriptSpendReadiness: () => FlowReadiness
   multisigSetupReady: () => boolean
   onChange: () => void
-  log: (message: string) => void
+  log: WorkbenchLogger
 }
 
 export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) => {
@@ -141,8 +144,30 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       validateBeforeSubmit: ensureEacTransactionValidity,
       expectedSignerHashes: mintSigner,
       review: eacMintReview,
-      completion: "Emissão EAC incluída: confira 12088322 unidades no campo mint e o payload público no label 65536 da faixa private use.",
+      completion: "Emissão ilustrativa incluída: confira 12088322 unidades no campo mint e aguarde a indexação antes de construir a aposentadoria.",
       readiness: dependencies.fundedReadiness,
+      onChange: dependencies.onChange,
+      log: dependencies.log,
+    }),
+    eacRetire: new FlowController({
+      id: "eacRetire",
+      title: "Aposentadoria EAC com burn",
+      witnessIds: ["eacRetireWitness"],
+      inputSelectors: ["#eacRetireMetadataJson"],
+      build: () => buildTx("/api/workshop/04a-retire-eac", {
+        userAddress: dependencies.wallet().address,
+        metadataJson: inputValue("#eacRetireMetadataJson"),
+      }),
+      sign,
+      validateBeforeSign: (details) => {
+        ensureEacTransactionValidity(details)
+        ensureWalletMatchesAddress(details, dependencies.wallet().address)
+      },
+      validateBeforeSubmit: ensureEacTransactionValidity,
+      expectedSignerHashes: mintSigner,
+      review: eacRetireReview,
+      completion: "Aposentadoria incluída: confira burn de -125000 e saldo restante de 11963322 unidades no output da wallet.",
+      readiness: dependencies.eacRetirementReadiness,
       onChange: dependencies.onChange,
       log: dependencies.log,
     }),

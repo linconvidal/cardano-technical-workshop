@@ -5,6 +5,7 @@ import test from "node:test"
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8")
 const server = readFileSync(new URL("../../api/src/server.ts", import.meta.url), "utf8")
 const styles = readFileSync(new URL("./styles.css", import.meta.url), "utf8")
+const technicalLog = readFileSync(new URL("./technical-log.ts", import.meta.url), "utf8")
 const flows = readFileSync(new URL("./workbench-flows.ts", import.meta.url), "utf8")
 const feature = readFileSync(new URL("../../../features/participant-led-workbench.feature", import.meta.url), "utf8")
 
@@ -21,7 +22,7 @@ test("participant page exposes readiness, session recovery, and ordered flow con
     assert.match(html, new RegExp(`id="${id}"`))
   }
 
-  for (const flow of ["payment", "metadata", "multisigLock", "multisigUnlock", "eacMint", "mint"]) {
+  for (const flow of ["payment", "metadata", "multisigLock", "multisigUnlock", "eacMint", "eacRetire", "mint"]) {
     for (const suffix of ["Build", "Sign", "Merge", "Submit", "Check", "Retry", "Reset", "Status", "Alert", "Acknowledge"]) {
       assert.match(html, new RegExp(`id="${flow}${suffix}"`), `${flow}${suffix} must exist`)
     }
@@ -39,6 +40,7 @@ test("multisig, EAC raw mint, and CIP-25 mint appear in order", () => {
 test("exercise order uses canonical routes while preserving old aliases", () => {
   assert.match(flows, /\/03-multisig\/lock/)
   assert.match(flows, /\/04a-mint-eac/)
+  assert.match(flows, /\/04a-retire-eac/)
   assert.match(flows, /\/04b-mint-cip25/)
   for (const route of ["04b-mint-cip25", "04-mint-cip25", "03-mint-cip25"]) {
     assert.match(server, new RegExp(`/api/workshop/${route}`))
@@ -61,6 +63,19 @@ test("EAC metadata fixture follows the exact ADR schema without accounting dupli
   assert.equal(metadata.version, 1)
   assert.equal(metadata.unit, "EAC")
   assert.equal(metadata.decimals, 3)
+})
+
+test("EAC retirement metadata avoids accounting duplication", () => {
+  const match = html.match(/id="eacRetireMetadataJson"[^>]*>([\s\S]*?)<\/textarea>/)
+  assert.ok(match)
+  const metadata = JSON.parse(match[1])
+  assert.deepEqual(Object.keys(metadata).sort(), [
+    "declaration_hash",
+    "delivery_reference_hash",
+    "version",
+  ])
+  assert.equal(metadata.version, 1)
+  assert.doesNotMatch(match[1], /quantity|asset_name|action/)
 })
 
 test("setup exposes the external CBOR inspector", () => {
@@ -88,6 +103,20 @@ test("visual tokens use the Cardano Foundation palette", () => {
   for (const legacyColor of ["#24211f", "#e9e6e0", "#a93620", "#7f2818", "#fffdfa", "#f4f1ec"]) {
     assert.doesNotMatch(styles, new RegExp(legacyColor, "i"))
   }
+  assert.match(html, /family=JetBrains\+Mono/)
+  assert.match(styles, /--font-mono: "JetBrains Mono"/)
+})
+
+test("technical log uses an accessible modal and unread-error attention marker", () => {
+  assert.match(html, /id="technicalLogButton"[^>]*aria-haspopup="dialog"[^>]*aria-controls="technicalLogDialog"/s)
+  assert.match(html, /class="debug-icon"[^>]*aria-hidden="true"/)
+  assert.match(html, /id="technicalLogBadge"[^>]*aria-hidden="true"[^>]*hidden/)
+  assert.match(html, /<dialog id="technicalLogDialog"[^>]*aria-labelledby="technicalLogTitle"/)
+  assert.match(html, /id="log"[^>]*role="log"[^>]*tabindex="0"/)
+  assert.doesNotMatch(html, /diagnostic-log/)
+  assert.match(technicalLog, /showModal\(\)/)
+  assert.match(technicalLog, /unreadErrors \+= 1/)
+  assert.match(technicalLog, /this\.launcher\.focus\(\)/)
 })
 
 test("status and failure feedback use live region semantics", () => {
@@ -111,6 +140,7 @@ test("behavioral scenarios cover readiness, invalidation, recovery, submission, 
     "dois witnesses válidos",
     "metadata raw",
     "CIP-25 como exemplo separado",
+    "Sinalizar erros no log técnico",
   ]) {
     assert.match(feature, new RegExp(phrase))
   }

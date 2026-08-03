@@ -35,6 +35,20 @@ export const eacMintReview = (details: Record<string, unknown> | undefined): str
   return `${network(details)}. O CBOR contém emissão de ${quantity} unidades (${formatEac(quantity)}) de ${text(details.tokenName)} e output de ${assetAmountAt(details, recipient, policyId, assetNameHex)} para o endereço contábil ${short(recipient)}. Metadata raw no label 65536: version ${text(metadata?.version)}, unit ${text(metadata?.unit)}, decimals ${text(metadata?.decimals)} e três referências de evidência. A policy verifica somente a chave autorizada; não valida a metadata nem limita a oferta. Validade desta transação até ${expiry}. Taxa calculada no corpo: ${fee(details)} lovelace.`
 }
 
+export const eacRetireReview = (details: Record<string, unknown> | undefined): string => {
+  if (!details) return "Construa e assine a aposentadoria EAC para ver o resumo."
+  const transaction = record(details.transaction)
+  const expiresAt = Number(text(transaction?.ttlUnixMs))
+  const expiry = Number.isFinite(expiresAt) ? new Date(expiresAt).toLocaleString("pt-BR") : "não disponível"
+  const policyId = text(details.policyId)
+  const assetNameHex = text(details.assetNameHex)
+  const recipient = text(details.recipientAddress)
+  const quantity = mintAmount(details, policyId, assetNameHex)
+  const remaining = assetAmountAt(details, recipient, policyId, assetNameHex)
+  const metadata = record(record(transaction?.auxiliaryData)?.["65536"])
+  return `${network(details)}. O CBOR contém burn de ${quantity} unidades (${formatEac(quantity.replace("-", ""))}) de ${text(details.tokenName)} e devolve saldo de ${remaining} unidades (${formatEac(remaining)}) à wallet contábil ${short(recipient)}. Metadata no label 65536: version ${text(metadata?.version)}, declaration_hash e delivery_reference_hash. A policy verifica somente a chave autorizada; não prova a entrega nem a declaração. Validade desta transação até ${expiry}. Taxa calculada no corpo: ${fee(details)} lovelace.`
+}
+
 export const multisigLockReview = (details: Record<string, unknown> | undefined): string => {
   if (!details) return "Construa e assine o lock para ver o resumo."
   const scriptAddress = text(details.scriptAddress)
