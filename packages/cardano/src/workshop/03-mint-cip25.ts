@@ -5,6 +5,7 @@ import {
   KeyHash,
   NativeScripts,
   ScriptHash,
+  SlotConfig,
   Time,
   Transaction,
   TransactionMetadatum,
@@ -14,6 +15,7 @@ import {
 import { expectKeyHash } from "../internal/addresses.js"
 import { BLOCKFROST_PREPROD_URL, loadBlockfrostProjectId } from "../internal/blockfrost-client.js"
 import { bytesToHex, textToAssetNameBytes } from "../internal/serialization.js"
+import { summarizeTransaction } from "./transaction-summary.js"
 import type { MintBuildParams, TxBuildResult } from "./types.js"
 
 const MINT_POLICY_TTL_MS = 3 * 60 * 60 * 1000
@@ -26,15 +28,18 @@ export const buildMintTx = async (params: MintBuildParams): Promise<TxBuildResul
   const recipientAddress = Address.fromBech32(params.recipientAddress)
   const userKeyHash = expectKeyHash(userAddress.paymentCredential, "user payment credential")
 
+  const slotConfig = SlotConfig.getSlotConfig("Preprod")
+  const requestedExpiry = BigInt(Date.now() + MINT_POLICY_TTL_MS)
+  const expirySlot = Time.unixTimeToSlot(requestedExpiry, slotConfig)
+  const expiresAt = Time.slotToUnixTime(expirySlot, slotConfig)
   const signerScript = NativeScripts.makeScriptPubKey(KeyHash.toBytes(userKeyHash))
-  const expiryScript = NativeScripts.makeInvalidHereafter(Time.getSlotAt(MINT_POLICY_TTL_MS, "Preprod"))
+  const expiryScript = NativeScripts.makeInvalidHereafter(expirySlot)
   const mintPolicy = NativeScripts.makeScriptAll([signerScript.script, expiryScript.script])
 
   const policyId = ScriptHash.fromScript(mintPolicy)
   const policyIdHex = ScriptHash.toHex(policyId)
   const assetNameBytes = textToAssetNameBytes(params.tokenName)
   const assetNameHex = bytesToHex(assetNameBytes)
-  const expiresAt = BigInt(Date.now() + MINT_POLICY_TTL_MS)
 
   const metadata = TransactionMetadatum.fromEntries([
     [
@@ -86,6 +91,7 @@ export const buildMintTx = async (params: MintBuildParams): Promise<TxBuildResul
       metadataVersion: "2",
       metadataKeyFormat: "byte strings for policy id and asset name",
       expiresAtUnixMs: expiresAt.toString(),
+      transaction: summarizeTransaction(transaction),
     },
   }
 }

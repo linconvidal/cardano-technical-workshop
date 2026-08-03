@@ -1,6 +1,7 @@
 import { Address, Assets, Client, Transaction, TransactionMetadatum, preprod } from "@evolution-sdk/evolution"
 
 import { BLOCKFROST_PREPROD_URL, loadBlockfrostProjectId } from "../internal/blockfrost-client.js"
+import { summarizeTransaction } from "./transaction-summary.js"
 import type { MetadataBuildParams, TxBuildResult } from "./types.js"
 
 export const buildMetadataTx = async (params: MetadataBuildParams): Promise<TxBuildResult> => {
@@ -33,6 +34,7 @@ export const buildMetadataTx = async (params: MetadataBuildParams): Promise<TxBu
       userAddress: params.userAddress,
       recipientAddress: params.recipientAddress,
       lovelace: params.lovelace.toString(),
+      transaction: summarizeTransaction(transaction),
     },
   }
 }
