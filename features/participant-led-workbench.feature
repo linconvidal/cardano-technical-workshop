@@ -103,9 +103,37 @@ Funcionalidade: Execução participante-led da Workbench Cardano
     Então script address, UTxOs, escolhas e confirmação anteriores devem ser removidos
     E o lock deve permanecer bloqueado até o novo setup ser gerado e revisado
 
-  Cenário: Reconstruir um mint expirado
-    Dado que a validade da policy do mint terminou
+  Cenário: Emitir o saldo EAC com metadata raw
+    Dado que o participante abriu o exercício 4A
+    Quando construir a emissão para o endereço contábil informado
+    Então o asset name deve ser EAC-BRE-2025P01
+    E o campo mint e o output devem conter 12088322 unidades
+    E o label 65536 da faixa private use deve conter somente version, unit, decimals, methodology_hash, assurance_hash e evidence_root
+    E asset name, ação e quantidade não devem ser duplicados na metadata
+    E a revisão deve informar que a policy verifica a chave, mas não valida a metadata nem os fatos industriais
+
+  Cenário: Rejeitar metadata EAC fora do schema
+    Dado que o participante alterou o JSON raw da emissão EAC
+    Quando o JSON estiver malformado, tiver campos extras ou hashes fora do formato de 64 caracteres hexadecimais minúsculos
+    Então a API deve rejeitar a construção
+    E a Workbench deve preservar os campos para correção
+
+  Cenário: Manter CIP-25 como exemplo separado
+    Dado que o exercício 4A usa metadata raw do caso EAC
+    Quando o participante abrir o exercício 4B
+    Então deve encontrar o mint CIP-25 no label 721
+    E a Workbench deve informar que CIP-25 padroniza metadata de apresentação
+    E não deve apresentar CIP-25 como metadata de emissão ou aposentadoria EAC
+
+  Cenário: Reconstruir um mint CIP-25 expirado
+    Dado que a validade da policy do mint CIP-25 terminou
     Quando a assinatura ou submissão falhar
     Então a Workbench deve preservar o erro técnico
     E deve instruir o participante a reconstruir
     E a nova construção deve exibir uma nova validade
+
+  Cenário: Reconstruir somente a transação EAC expirada
+    Dado que a janela de validade da emissão EAC terminou
+    Quando a assinatura ou submissão falhar
+    Então a Workbench deve informar que a policy EAC permanece a mesma
+    E deve instruir o participante a construir outra transação com nova validade

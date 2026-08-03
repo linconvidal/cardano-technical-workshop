@@ -15,6 +15,7 @@ import {
 import { buildPaymentTx } from "../../../packages/cardano/src/workshop/01-payment.js"
 import { buildMetadataTx } from "../../../packages/cardano/src/workshop/02-metadata.js"
 import { buildMintTx } from "../../../packages/cardano/src/workshop/03-mint-cip25.js"
+import { buildEacMintTx } from "../../../packages/cardano/src/workshop/04a-mint-eac.js"
 import {
   buildMultisigLockTx,
   buildMultisigUnlockTx,
@@ -24,6 +25,7 @@ import {
 } from "../../../packages/cardano/src/workshop/04-multisig.js"
 import { ApiError, type ApiProblem } from "./api-error.js"
 import {
+  parseEacMintRequest,
   parseMetadataRequest,
   parseMintRequest,
   parseMultisigInputVerificationRequest,
@@ -86,7 +88,15 @@ app.post("/api/workshop/02-metadata", asyncRoute(async (req, res) => {
   res.json(await buildMetadataTx(parseMetadataRequest(req.body)))
 }))
 
-for (const path of ["/api/workshop/04-mint-cip25", "/api/workshop/03-mint-cip25"]) {
+app.post("/api/workshop/04a-mint-eac", asyncRoute(async (req, res) => {
+  res.json(await buildEacMintTx(parseEacMintRequest(req.body)))
+}))
+
+for (const path of [
+  "/api/workshop/04b-mint-cip25",
+  "/api/workshop/04-mint-cip25",
+  "/api/workshop/03-mint-cip25",
+]) {
   app.post(path, asyncRoute(async (req, res) => {
     res.json(await buildMintTx(parseMintRequest(req.body)))
   }))

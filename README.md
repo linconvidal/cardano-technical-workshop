@@ -35,6 +35,9 @@ Acesse:
 - Workbench: <http://127.0.0.1:5173>
 - backend: <http://127.0.0.1:8787/api/health>
 - prontidão: <http://127.0.0.1:8787/api/readiness>
+- inspeção externa de CBOR: [CBOR Nemo](https://cbor.nemo157.com/)
+
+O CBOR Nemo é uma ferramenta de terceiros. Não envie seed phrase, chave privada ou credencial Blockfrost. Prefira inspecionar o unsigned CBOR; quem obtiver um signed CBOR válido poderá submetê-lo à rede.
 
 Para o fluxo CLI com chave no backend, crie `.seedphrase` localmente ou exporte `WALLET_MNEMONIC`. `.seedphrase`, `.env`, `dist/` e `node_modules/` são arquivos locais e não devem ser commitados.
 
@@ -57,7 +60,9 @@ A sessão usa `sessionStorage`. Ela preserva endereços, CBOR e witnesses na aba
 1. Pagamento simples.
 2. Pagamento com metadata no label 674.
 3. Multisig 2-de-2, com lock, seleção de UTxO, handoff de CBOR e unlock.
-4. Native Asset com policy nativa e metadata CIP-25.
+4. Native Asset em dois exemplos:
+   - 4A: emissão de `EAC-BRE-2025P01` com quantidade inteira e metadata raw de evidência no label `65536` da faixa private use;
+   - 4B: media token com metadata de apresentação CIP-25 no label `721`.
 
 Cada pipeline mantém o mesmo contrato:
 
@@ -78,7 +83,9 @@ O hash é determinístico e pode ser calculado localmente antes da submissão. U
 - Metadata transfere tADA e publica conteúdo visível na blockchain.
 - Multisig lock move tADA para um script que exige duas chaves distintas. Uma configuração incorreta pode deixar o saldo inacessível.
 - Multisig unlock consome o UTxO escolhido, envia o valor definido ao destino e devolve o troco ao script. A inclusão conclui uma rodada, não a recuperação total do saldo. Para mover o restante, reinicie o unlock, liste o novo UTxO e repita com as duas wallets.
-- Mint cria unidades do asset, usa ao menos 5 tADA no output e possui policy com validade de aproximadamente três horas.
+- Emissão EAC cria `12088322` unidades de `EAC-BRE-2025P01`, usa ao menos 5 tADA no output e anexa as referências `methodology_hash`, `assurance_hash` e `evidence_root` no label `65536`, reservado pela CIP-10 para private use. O label não torna os dados confidenciais.
+- A policy EAC é estável e exige a chave da wallet. Ela não valida o conteúdo da metadata nem limita a oferta. A validade de aproximadamente três horas pertence à transação construída, não à policy. Este exercício cobre somente a emissão; a aposentadoria exige uma transação de burn separada.
+- O exemplo CIP-25 cria unidades de um media token, usa ao menos 5 tADA no output e possui policy com validade de aproximadamente três horas.
 
 Use wallets descartáveis e valores de testnet durante validação.
 
@@ -96,11 +103,12 @@ POST /api/workshop/03-multisig/lock
 POST /api/workshop/03-multisig/utxos
 POST /api/workshop/03-multisig/verify-input
 POST /api/workshop/03-multisig/unlock
-POST /api/workshop/04-mint-cip25
+POST /api/workshop/04a-mint-eac
+POST /api/workshop/04b-mint-cip25
 POST /api/submit-tx
 ```
 
-As rotas anteriores `/api/workshop/03-mint-cip25` e `/api/workshop/04-multisig/*` permanecem como aliases de compatibilidade.
+As rotas anteriores `/api/workshop/03-mint-cip25`, `/api/workshop/04-mint-cip25` e `/api/workshop/04-multisig/*` permanecem como aliases de compatibilidade.
 
 ## CLI de apoio
 
@@ -127,7 +135,7 @@ npm run build
 npm run test:browser
 ```
 
-Os testes cobrem validação de requests, rede e valores, signers multisig distintos, inspeção de CBOR importado, prontidão Blockfrost, consulta de inclusão, submissão ambígua, hash divergente, resumos derivados da transação, validade do mint, erros HTTP, progressão do pipeline, invalidação de artefatos, retry e restauração de sessão.
+Os testes cobrem validação de requests, schema raw da emissão EAC, policy EAC estável, rede e valores, signers multisig distintos, inspeção de CBOR importado, prontidão Blockfrost, consulta de inclusão, submissão ambígua, hash divergente, resumos derivados da transação, validade dos mints, erros HTTP, progressão do pipeline, invalidação de artefatos, retry, restauração de sessão e alinhamento visual dos inputs.
 
 Os cenários comportamentais estão em [`features/participant-led-workbench.feature`](features/participant-led-workbench.feature).
 

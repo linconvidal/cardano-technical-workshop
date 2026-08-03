@@ -254,6 +254,28 @@ small {
   margin-bottom: 0;
 }
 
+.inspection-tool {
+  align-items: center;
+  background: #eef7ff;
+  border: 1px solid #9bbbd8;
+  border-radius: 14px;
+  display: grid;
+  gap: 20px;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 16px 18px;
+}
+
+.inspection-tool p {
+  color: var(--ink);
+  line-height: 1.45;
+  margin: 4px 0 2px;
+}
+
+.inspection-tool small {
+  display: block;
+}
+
 .readiness-list {
   display: grid;
   gap: 10px;
@@ -394,7 +416,7 @@ small {
   border-radius: 16px;
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   margin: 0 0 22px;
   padding: 8px;
   position: sticky;
@@ -458,11 +480,41 @@ small {
   margin: 0;
 }
 
+.mint-spec {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0 0 24px;
+}
+
+.mint-spec > div {
+  border-top: 3px solid var(--ink);
+  padding-top: 10px;
+}
+
+.mint-spec dt {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mint-spec dd {
+  line-height: 1.4;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .form-grid {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 20px 0 24px;
+}
+
+.form-grid > label {
+  align-content: start;
 }
 
 .wide {
@@ -489,6 +541,13 @@ textarea {
   color: var(--ink);
   padding: 12px 14px;
   width: 100%;
+}
+
+.form-grid textarea {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  resize: vertical;
 }
 
 input:invalid:not(:placeholder-shown) {
@@ -792,7 +851,8 @@ code {
 
 @media (max-width: 940px) {
   .readiness-card,
-  .exercise-contract {
+  .exercise-contract,
+  .mint-spec {
     grid-template-columns: 1fr;
   }
 
@@ -826,8 +886,8 @@ code {
 
   .exercise-nav {
     gap: 4px;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    overflow-x: auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow-x: visible;
     top: 4px;
   }
 
@@ -835,13 +895,14 @@ code {
     flex-direction: column;
     font-size: 0.7rem;
     gap: 4px;
-    min-width: 68px;
+    min-width: 0;
     padding: 7px 4px;
     text-align: center;
   }
 
   .form-grid,
-  .wallet-connect {
+  .wallet-connect,
+  .inspection-tool {
     grid-template-columns: 1fr;
   }
 

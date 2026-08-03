@@ -23,6 +23,21 @@ export type MintBuildParams = {
   description: string
 }
 
+export type EacIssuanceMetadata = {
+  version: 1
+  unit: "EAC"
+  decimals: 3
+  methodology_hash: string
+  assurance_hash: string
+  evidence_root: string
+}
+
+export type EacMintBuildParams = {
+  userAddress: string
+  recipientAddress: string
+  metadata: EacIssuanceMetadata
+}
+
 export type MultisigParams = {
   userAddress: string
   secondSignerAddress: string

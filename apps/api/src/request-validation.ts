@@ -2,6 +2,8 @@ import { Address, KeyHash, Transaction } from "@evolution-sdk/evolution"
 
 import { expectKeyHash } from "../../../packages/cardano/src/internal/addresses.js"
 import type {
+  EacIssuanceMetadata,
+  EacMintBuildParams,
   MetadataBuildParams,
   MintBuildParams,
   MultisigLockParams,
@@ -32,6 +34,12 @@ type MintRequest = {
   metadataName?: unknown
   image?: unknown
   description?: unknown
+}
+
+type EacMintRequest = {
+  userAddress?: unknown
+  recipientAddress?: unknown
+  metadataJson?: unknown
 }
 
 type MultisigRequest = {
@@ -76,6 +84,12 @@ export const parseMintRequest = (body: MintRequest = {}): MintBuildParams => ({
   metadataName: requireBoundedString(body.metadataName, "metadataName", 64),
   image: requireBoundedString(body.image, "image", 2_048),
   description: requireBoundedString(body.description, "description", 2_048),
+})
+
+export const parseEacMintRequest = (body: EacMintRequest = {}): EacMintBuildParams => ({
+  userAddress: parseTestnetAddress(body.userAddress, "userAddress"),
+  recipientAddress: parseTestnetAddress(body.recipientAddress, "recipientAddress"),
+  metadata: parseEacIssuanceMetadata(body.metadataJson),
 })
 
 export const parseMultisigRequest = (body: MultisigRequest = {}): MultisigParams => {
@@ -135,6 +149,69 @@ export const parseTransactionHash = (value: unknown): string => {
   if (/^[0-9a-fA-F]{64}$/.test(txHash)) return txHash.toLowerCase()
   throw new RequestValidationError("txHash precisa ter 64 caracteres hexadecimais", "txHash")
 }
+
+const EAC_METADATA_KEYS = [
+  "assurance_hash",
+  "decimals",
+  "evidence_root",
+  "methodology_hash",
+  "unit",
+  "version",
+] as const
+
+const parseEacIssuanceMetadata = (value: unknown): EacIssuanceMetadata => {
+  const raw = requireBoundedString(value, "metadataJson", 4_096)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new RequestValidationError(
+      "metadataJson precisa conter um objeto JSON válido",
+      "metadataJson",
+      "Corrija a sintaxe do JSON e preserve somente os seis campos do schema de emissão EAC.",
+    )
+  }
+
+  if (!isRecord(parsed)) {
+    throw new RequestValidationError("metadataJson precisa ser um objeto JSON", "metadataJson")
+  }
+
+  const keys = Object.keys(parsed).sort()
+  if (keys.length !== EAC_METADATA_KEYS.length || keys.some((key, index) => key !== EAC_METADATA_KEYS[index])) {
+    throw new RequestValidationError(
+      `metadataJson precisa conter exatamente: ${EAC_METADATA_KEYS.join(", ")}`,
+      "metadataJson",
+      "Não duplique asset name, ação ou quantidade na metadata.",
+    )
+  }
+
+  if (parsed.version !== 1 || parsed.unit !== "EAC" || parsed.decimals !== 3) {
+    throw new RequestValidationError(
+      "metadataJson precisa usar version 1, unit EAC e decimals 3",
+      "metadataJson",
+    )
+  }
+
+  return {
+    version: 1,
+    unit: "EAC",
+    decimals: 3,
+    methodology_hash: requireCanonicalHash(parsed.methodology_hash, "methodology_hash"),
+    assurance_hash: requireCanonicalHash(parsed.assurance_hash, "assurance_hash"),
+    evidence_root: requireCanonicalHash(parsed.evidence_root, "evidence_root"),
+  }
+}
+
+const requireCanonicalHash = (value: unknown, field: string): string => {
+  if (typeof value === "string" && /^[0-9a-f]{64}$/.test(value)) return value
+  throw new RequestValidationError(
+    `${field} precisa ter exatamente 64 caracteres hexadecimais minúsculos`,
+    "metadataJson",
+  )
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
 
 const requireString = (value: unknown, field: string): string => {
   if (typeof value === "string" && value.trim()) return value.trim()

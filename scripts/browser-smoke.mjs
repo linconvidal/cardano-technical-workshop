@@ -41,6 +41,19 @@ try {
     activeStep: document.querySelector('#paymentPanel [data-progress-step][data-status="current"]')?.textContent?.trim(),
     readinessLabels: [...document.querySelectorAll('.readiness-list li')].map((node) => node.dataset.statusLabel),
     faucetHref: document.querySelector('#walletHelp a')?.href,
+    cborNemo: (() => {
+      const link = document.querySelector('.inspection-tool a')
+      return { href: link?.href, visible: Boolean(link?.offsetParent) }
+    })(),
+    paymentFieldGeometry: (() => {
+      const recipient = document.querySelector('#paymentRecipient')
+      const lovelace = document.querySelector('#paymentLovelace')
+      const recipientLabel = recipient?.closest('label')
+      const lovelaceLabel = lovelace?.closest('label')
+      const rect = (node) => node ? { top: node.getBoundingClientRect().top, height: node.getBoundingClientRect().height } : null
+      return { recipient: rect(recipient), lovelace: rect(lovelace), recipientLabel: rect(recipientLabel), lovelaceLabel: rect(lovelaceLabel) }
+    })(),
+    eacMetadataKeys: Object.keys(JSON.parse(document.querySelector('#eacMintMetadataJson')?.value ?? '{}')).sort(),
     multisigSetupAcknowledgement: Boolean(document.querySelector('#multisigSetupAcknowledge')),
   }))()`)
 
@@ -55,6 +68,12 @@ try {
   assert.match(desktop.activeStep, /Construir/)
   assert.equal(desktop.readinessLabels.every(Boolean), true)
   assert.match(desktop.faucetHref, /^https:\/\/docs\.cardano\.org\/cardano-testnets\/tools\/faucet/)
+  assert.equal(desktop.cborNemo.href, "https://cbor.nemo157.com/")
+  assert.equal(desktop.cborNemo.visible, true)
+  assert.ok(Math.abs(desktop.paymentFieldGeometry.recipient.top - desktop.paymentFieldGeometry.lovelace.top) <= 1)
+  assert.ok(Math.abs(desktop.paymentFieldGeometry.recipient.height - desktop.paymentFieldGeometry.lovelace.height) <= 1)
+  assert.ok(Math.abs(desktop.paymentFieldGeometry.recipientLabel.height - desktop.paymentFieldGeometry.lovelaceLabel.height) <= 1)
+  assert.deepEqual(desktop.eacMetadataKeys, ["assurance_hash", "decimals", "evidence_root", "methodology_hash", "unit", "version"])
   assert.equal(desktop.multisigSetupAcknowledgement, true)
 
   const accessibility = await cdp.send("Accessibility.getFullAXTree")
@@ -72,21 +91,49 @@ try {
     mobile: true,
   })
   await evaluate(cdp, "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
-  const mobile = await evaluate(cdp, `(() => ({
-    clientWidth: document.documentElement.clientWidth,
-    scrollWidth: document.documentElement.scrollWidth,
-    horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-    navVisible: Boolean(document.querySelector('.exercise-nav')),
-  }))()`)
+  const mobile = await evaluate(cdp, `(() => {
+    const nav = document.querySelector('.exercise-nav')
+    return {
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      navVisible: Boolean(nav),
+      navHorizontalOverflow: nav ? nav.scrollWidth > nav.clientWidth : true,
+      navLinks: nav?.querySelectorAll('a').length ?? 0,
+    }
+  })()`)
   assert.equal(mobile.clientWidth, 390)
   assert.equal(mobile.horizontalOverflow, false)
   assert.equal(mobile.navVisible, true)
+  assert.equal(mobile.navHorizontalOverflow, false)
+  assert.equal(mobile.navLinks, 5)
+
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: 320,
+    height: 720,
+    deviceScaleFactor: 1,
+    mobile: true,
+  })
+  await evaluate(cdp, "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+  const narrowMobile = await evaluate(cdp, `(() => {
+    const nav = document.querySelector('.exercise-nav')
+    return {
+      clientWidth: document.documentElement.clientWidth,
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      navHorizontalOverflow: nav ? nav.scrollWidth > nav.clientWidth : true,
+      navLinks: nav?.querySelectorAll('a').length ?? 0,
+    }
+  })()`)
+  assert.equal(narrowMobile.clientWidth, 320)
+  assert.equal(narrowMobile.horizontalOverflow, false)
+  assert.equal(narrowMobile.navHorizontalOverflow, false)
+  assert.equal(narrowMobile.navLinks, 5)
 
   await evaluate(cdp, "document.querySelector('#paymentRecipient').focus(); document.activeElement.id")
   const focused = await evaluate(cdp, "document.activeElement.id")
   assert.equal(focused, "paymentRecipient")
 
-  console.log(JSON.stringify({ desktop, mobile, unnamedControls: unnamedControls.length }, null, 2))
+  console.log(JSON.stringify({ desktop, mobile, narrowMobile, unnamedControls: unnamedControls.length }, null, 2))
   cdp.close()
 } finally {
   chrome.kill("SIGTERM")

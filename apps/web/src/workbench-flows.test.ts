@@ -3,7 +3,11 @@ import test from "node:test"
 
 import { Address, KeyHash } from "@evolution-sdk/evolution"
 
-import { ensureMintValidity, ensureWalletIsRequiredSigner } from "./workbench-flows.js"
+import {
+  ensureEacTransactionValidity,
+  ensureMintValidity,
+  ensureWalletIsRequiredSigner,
+} from "./workbench-flows.js"
 
 test("wallet membership is checked before signing a multisig unlock", () => {
   const signerHash = KeyHash.fromHex("1".repeat(56))
@@ -17,6 +21,15 @@ test("wallet membership is checked before signing a multisig unlock", () => {
   assert.throws(
     () => ensureWalletIsRequiredSigner({ requiredSigners: [KeyHash.toHex(signerHash)] }, unrelatedAddress),
     /não pertence aos required signers/,
+  )
+})
+
+test("EAC validity expires the transaction without describing the stable policy as expired", () => {
+  const now = 1_700_000_000_000
+  assert.doesNotThrow(() => ensureEacTransactionValidity({ transaction: { ttlUnixMs: String(now + 31_000) } }, now))
+  assert.throws(
+    () => ensureEacTransactionValidity({ transaction: { ttlUnixMs: String(now + 30_000) } }, now),
+    /janela de validade da transação EAC.*expirou/i,
   )
 })
 

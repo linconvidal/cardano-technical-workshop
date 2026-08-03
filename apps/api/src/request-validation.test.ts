@@ -16,6 +16,7 @@ import {
 
 import { RequestValidationError } from "./api-error.js"
 import {
+  parseEacMintRequest,
   parseMultisigInputVerificationRequest,
   parseMultisigRequest,
   parsePaymentRequest,
@@ -76,6 +77,70 @@ test("rejects mainnet addresses, zero values, and unsafe numeric values", () => 
     }),
     /número inteiro positivo/,
   )
+})
+
+test("parses the exact EAC issuance metadata schema", () => {
+  const userAddress = keyAddress("1")
+  const recipientAddress = keyAddress("2")
+  const metadata = {
+    version: 1,
+    unit: "EAC",
+    decimals: 3,
+    methodology_hash: "1".repeat(64),
+    assurance_hash: "2".repeat(64),
+    evidence_root: "3".repeat(64),
+  }
+
+  assert.deepEqual(parseEacMintRequest({
+    userAddress,
+    recipientAddress,
+    metadataJson: JSON.stringify(metadata),
+  }), { userAddress, recipientAddress, metadata })
+})
+
+test("rejects malformed or expanded EAC issuance metadata", () => {
+  const base = {
+    version: 1,
+    unit: "EAC",
+    decimals: 3,
+    methodology_hash: "1".repeat(64),
+    assurance_hash: "2".repeat(64),
+    evidence_root: "3".repeat(64),
+  }
+  const request = (metadataJson: string) => parseEacMintRequest({
+    userAddress: keyAddress("1"),
+    recipientAddress: keyAddress("2"),
+    metadataJson,
+  })
+
+  assert.throws(() => request("{"), /JSON válido/)
+  for (const value of [null, [], "metadata"]) {
+    assert.throws(() => request(JSON.stringify(value)), /objeto JSON/)
+  }
+  assert.throws(() => request(JSON.stringify({ ...base, quantity: "12088322" })), /exatamente/)
+  const { evidence_root: _omitted, ...missingKey } = base
+  assert.throws(() => request(JSON.stringify(missingKey)), /exatamente/)
+  assert.throws(() => request(JSON.stringify({ ...base, version: "1" })), /version 1/)
+  assert.throws(() => request(JSON.stringify({ ...base, unit: "eac" })), /unit EAC/)
+  assert.throws(() => request(JSON.stringify({ ...base, decimals: "3" })), /decimals 3/)
+  assert.throws(() => request(JSON.stringify({ ...base, methodology_hash: "a".repeat(63) })), /64 caracteres/)
+  assert.throws(() => request(JSON.stringify({ ...base, assurance_hash: "G".repeat(64) })), /hexadecimais minúsculos/)
+  assert.throws(() => request(JSON.stringify({ ...base, evidence_root: "A".repeat(64) })), /hexadecimais minúsculos/)
+})
+
+test("EAC issuance rejects mainnet addresses", () => {
+  assert.throws(() => parseEacMintRequest({
+    userAddress: keyAddress("1", 1),
+    recipientAddress: keyAddress("2"),
+    metadataJson: JSON.stringify({
+      version: 1,
+      unit: "EAC",
+      decimals: 3,
+      methodology_hash: "1".repeat(64),
+      assurance_hash: "2".repeat(64),
+      evidence_root: "3".repeat(64),
+    }),
+  }), /testnet/)
 })
 
 test("validates a script UTxO verification request", () => {

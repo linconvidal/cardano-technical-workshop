@@ -26,6 +26,8 @@ Confirme no navegador:
 
 Use wallets descartáveis de testnet. Não use seed ou chave de produção.
 
+Deixe o [CBOR Nemo](https://cbor.nemo157.com/) disponível para inspeção manual dos artefatos. É uma ferramenta de terceiros. Não cole seed phrase, chave privada ou credencial Blockfrost. Prefira o unsigned CBOR; quem obtiver um signed CBOR válido poderá submetê-lo à rede.
+
 ## 2. Abertura participante-led
 
 A introdução deve ser curta:
@@ -181,7 +183,48 @@ npm run start -- sign-cbor <unsigned_tx_cbor>
 
 O unlock envia o valor escolhido ao destino e devolve o troco ao script. A rodada termina somente após inclusão do unlock, mas isso não recupera automaticamente todo o saldo bloqueado. Para mover mais tADA, reinicie somente o unlock, liste o novo UTxO do script e repita com as duas wallets.
 
-## 9. Exercício 4: Native Asset com CIP-25
+## 9. Exercício 4: dois modelos de Native Asset
+
+### 9.1 Exercício 4A: emissão EAC com metadata raw
+
+Este exercício implementa a emissão inicial descrita na ADR-002:
+
+- asset name fixo `EAC-BRE-2025P01`;
+- quantidade on-chain `12088322`;
+- exibição da aplicação `12.088,322 EAC`, com três casas decimais;
+- endereço contábil que mantém o saldo disponível;
+- policy estável baseada na chave da wallet;
+- validade aproximada de três horas somente para a transação atual;
+- metadata no label `65536`, reservado pela CIP-10 para private use.
+
+O JSON raw contém exatamente:
+
+```json
+{
+  "version": 1,
+  "unit": "EAC",
+  "decimals": 3,
+  "methodology_hash": "...",
+  "assurance_hash": "...",
+  "evidence_root": "..."
+}
+```
+
+A API exige os seis campos e hashes hexadecimais minúsculos de 64 caracteres. Essa validação pertence à aplicação. A native policy verifica somente a chave autorizada; ela não lê transaction metadata, não limita a oferta e não prova os fatos industriais externos.
+
+Os valores padrão dos hashes são fixtures sintéticas. Não os descreva como evidências da Heidelberg Materials ou da DNV. O label private use evita colisão com `674` e `721`, mas não torna o conteúdo privado ou confidencial.
+
+Perguntas:
+
+- Onde a quantidade aparece e por que ela não é repetida na metadata?
+- Por que `decimals: 3` não altera a quantidade que o ledger registra?
+- O que a chave autorizada prova?
+- O que os hashes conectam sem provar?
+- Por que a policy id permanece igual quando a validade da transação muda?
+
+Este recorte cobre somente emissão. A aposentadoria exige uma transação separada com quantidade negativa no campo mint, saldo remanescente e referências de declaração e entrega.
+
+### 9.2 Exercício 4B: media token com CIP-25
 
 A Workbench mostra:
 
@@ -190,7 +233,7 @@ A Workbench mostra:
 - native script em CBOR e JSON;
 - required signer;
 - metadata no label 721, version 2;
-- validade aproximada de três horas;
+- validade da policy e da transação em aproximadamente três horas;
 - output com ao menos 5 tADA;
 - unsigned, witness, signed CBOR e transaction hash.
 
@@ -198,8 +241,9 @@ Perguntas:
 
 - Qual regra autoriza o mint?
 - O que acontece se a policy expirar antes da submissão?
-- Qual é a diferença entre o asset e a metadata que o descreve?
+- Qual é a diferença entre o asset e a metadata que o apresenta?
 - Por que `name`, `image` e `description` possuem limites ou chunking?
+- Por que CIP-25 não é usado para emissão e aposentadoria EAC?
 
 Se a validade expirar, o participante deve reconstruir. Não reutilize o CBOR antigo.
 

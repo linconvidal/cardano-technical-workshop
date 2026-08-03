@@ -6,6 +6,7 @@ import type { FlowReadiness } from "./flow-renderer.js"
 import { postJson } from "./http.js"
 import { inspectMultisigUnlock } from "./multisig-inspection.js"
 import {
+  eacMintReview,
   metadataReview,
   mintReview,
   multisigLockReview,
@@ -122,12 +123,35 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       onChange: dependencies.onChange,
       log: dependencies.log,
     }),
+    eacMint: new FlowController({
+      id: "eacMint",
+      title: "Emissão EAC com metadata raw",
+      witnessIds: ["eacMintWitness"],
+      inputSelectors: ["#eacMintRecipient", "#eacMintMetadataJson"],
+      build: () => buildTx("/api/workshop/04a-mint-eac", {
+        userAddress: dependencies.wallet().address,
+        recipientAddress: inputValue("#eacMintRecipient"),
+        metadataJson: inputValue("#eacMintMetadataJson"),
+      }),
+      sign,
+      validateBeforeSign: (details) => {
+        ensureEacTransactionValidity(details)
+        ensureWalletMatchesAddress(details, dependencies.wallet().address)
+      },
+      validateBeforeSubmit: ensureEacTransactionValidity,
+      expectedSignerHashes: mintSigner,
+      review: eacMintReview,
+      completion: "Emissão EAC incluída: confira 12088322 unidades no campo mint e o payload público no label 65536 da faixa private use.",
+      readiness: dependencies.fundedReadiness,
+      onChange: dependencies.onChange,
+      log: dependencies.log,
+    }),
     mint: new FlowController({
       id: "mint",
       title: "Native Asset CIP-25",
       witnessIds: ["mintWitness"],
       inputSelectors: ["#mintRecipient", "#mintTokenName", "#mintAmount", "#mintMetadataName", "#mintImage", "#mintDescription"],
-      build: () => buildTx("/api/workshop/04-mint-cip25", {
+      build: () => buildTx("/api/workshop/04b-mint-cip25", {
         userAddress: dependencies.wallet().address,
         recipientAddress: inputValue("#mintRecipient"),
         tokenName: inputValue("#mintTokenName"),
@@ -220,11 +244,22 @@ const paymentKeyHash = (bech32: string): string =>
   KeyHash.toHex(expectKeyHash(Address.fromBech32(bech32).paymentCredential, "payment credential"))
 
 export const ensureMintValidity = (details: Record<string, unknown> | undefined, now = Date.now()) => {
-  const expiresAt = Number(
-    typeof details?.transaction === "object" && details.transaction !== null
-      ? (details.transaction as Record<string, unknown>).ttlUnixMs
-      : undefined,
-  )
+  const expiresAt = transactionExpiry(details)
   if (Number.isFinite(expiresAt) && expiresAt > now + 30_000) return
   throw new Error("A validade da policy do mint expirou ou está próxima do fim")
 }
+
+export const ensureEacTransactionValidity = (
+  details: Record<string, unknown> | undefined,
+  now = Date.now(),
+) => {
+  const expiresAt = transactionExpiry(details)
+  if (Number.isFinite(expiresAt) && expiresAt > now + 30_000) return
+  throw new Error("A janela de validade da transação EAC expirou ou está próxima do fim")
+}
+
+const transactionExpiry = (details: Record<string, unknown> | undefined): number => Number(
+  typeof details?.transaction === "object" && details.transaction !== null
+    ? (details.transaction as Record<string, unknown>).ttlUnixMs
+    : undefined,
+)

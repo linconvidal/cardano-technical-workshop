@@ -156,6 +156,7 @@ function invalidateWalletBoundFlows(previousAddress: string | undefined, current
   flowControllers.payment.revalidateWalletAddress(currentAddress)
   flowControllers.metadata.revalidateWalletAddress(currentAddress)
   flowControllers.multisigLock.revalidateWalletAddress(currentAddress)
+  flowControllers.eacMint.revalidateWalletAddress(currentAddress)
   flowControllers.mint.revalidateWalletAddress(currentAddress)
 
   if (!previousAddress || previousAddress === currentAddress) return
@@ -163,7 +164,7 @@ function invalidateWalletBoundFlows(previousAddress: string | undefined, current
 }
 
 function setDefaultAddresses(address: string) {
-  for (const id of ["paymentRecipient", "metadataRecipient", "multisigDestination", "mintRecipient"]) {
+  for (const id of ["paymentRecipient", "metadataRecipient", "multisigDestination", "eacMintRecipient", "mintRecipient"]) {
     const input = select<HTMLInputElement>(`#${id}`)
     if (input.value.trim()) continue
     input.value = address

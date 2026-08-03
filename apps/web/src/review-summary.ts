@@ -22,6 +22,19 @@ export const mintReview = (details: Record<string, unknown> | undefined): string
   return `${network(details)}. O CBOR contém mint de ${mintAmount(details, policyId, assetNameHex)} unidade(s) de ${text(details.tokenName)} e output de ${assetAmountAt(details, recipient, policyId, assetNameHex)} para ${short(recipient)}. Policy ${short(policyId)}. Validade até ${expiry}. Taxa calculada no corpo: ${fee(details)} lovelace.`
 }
 
+export const eacMintReview = (details: Record<string, unknown> | undefined): string => {
+  if (!details) return "Construa e assine a emissão EAC para ver o resumo."
+  const transaction = record(details.transaction)
+  const expiresAt = Number(text(transaction?.ttlUnixMs))
+  const expiry = Number.isFinite(expiresAt) ? new Date(expiresAt).toLocaleString("pt-BR") : "não disponível"
+  const policyId = text(details.policyId)
+  const assetNameHex = text(details.assetNameHex)
+  const recipient = text(details.recipientAddress)
+  const quantity = mintAmount(details, policyId, assetNameHex)
+  const metadata = record(record(transaction?.auxiliaryData)?.["65536"])
+  return `${network(details)}. O CBOR contém emissão de ${quantity} unidades (${formatEac(quantity)}) de ${text(details.tokenName)} e output de ${assetAmountAt(details, recipient, policyId, assetNameHex)} para o endereço contábil ${short(recipient)}. Metadata raw no label 65536: version ${text(metadata?.version)}, unit ${text(metadata?.unit)}, decimals ${text(metadata?.decimals)} e três referências de evidência. A policy verifica somente a chave autorizada; não valida a metadata nem limita a oferta. Validade desta transação até ${expiry}. Taxa calculada no corpo: ${fee(details)} lovelace.`
+}
+
 export const multisigLockReview = (details: Record<string, unknown> | undefined): string => {
   if (!details) return "Construa e assine o lock para ver o resumo."
   const scriptAddress = text(details.scriptAddress)
@@ -77,6 +90,17 @@ const lovelaceAt = (details: Record<string, unknown>, address: string): string =
 const fee = (details: Record<string, unknown>): string => {
   const transaction = record(details.transaction)
   return transaction ? text(transaction.feeLovelace) : "não disponível"
+}
+
+const formatEac = (raw: string): string => {
+  try {
+    const quantity = BigInt(raw)
+    const whole = quantity / 1_000n
+    const fraction = (quantity % 1_000n).toString().padStart(3, "0")
+    return `${whole.toLocaleString("pt-BR")},${fraction} EAC`
+  } catch {
+    return "quantidade indisponível"
+  }
 }
 
 const record = (value: unknown): Record<string, unknown> | undefined =>

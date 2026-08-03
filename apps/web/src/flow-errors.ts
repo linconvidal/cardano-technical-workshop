@@ -15,6 +15,15 @@ export const toFlowError = (action: FlowAction, error: unknown): FlowError => {
   const observedDetail = error instanceof HttpError
     ? error.problem.technicalDetail ?? error.problem.message
     : error instanceof Error ? error.message : String(error)
+  if (/transação EAC.*expir|janela de validade da transação EAC/i.test(observedDetail)) {
+    return {
+      action,
+      message: "A transação EAC expirou",
+      guidance: "Reinicie a emissão e construa uma nova transação. A policy permanece a mesma; somente a validade da transação será renovada.",
+      technicalDetail: observedDetail,
+      retryable: false,
+    }
+  }
   if (/validade.*expir|policy.*expir|expired/i.test(observedDetail)) {
     return {
       action,

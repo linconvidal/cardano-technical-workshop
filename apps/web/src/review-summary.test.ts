@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { metadataReview, mintReview, paymentReview } from "./review-summary.js"
+import { eacMintReview, metadataReview, mintReview, paymentReview } from "./review-summary.js"
 
 const recipient = "addr_test1actualrecipient"
 
@@ -17,6 +17,43 @@ test("payment and metadata reviews prefer effects decoded from transaction data"
   const review = metadataReview({ recipientAddress: recipient, message: "declared only", transaction })
   assert.match(review, /actual message/)
   assert.doesNotMatch(review, /declared only/)
+})
+
+test("EAC review derives quantity, display amount, and raw metadata from transaction data", () => {
+  const policy = "b".repeat(56)
+  const asset = "4541432d4252452d32303235503031"
+  const review = eacMintReview({
+    policyId: policy,
+    assetNameHex: asset,
+    tokenName: "EAC-BRE-2025P01",
+    recipientAddress: recipient,
+    transaction: {
+      network: "testnet",
+      feeLovelace: "180000",
+      ttlUnixMs: String(Date.now() + 60_000),
+      mint: { map: { [policy]: { [asset]: "12088322" } } },
+      outputs: [{
+        address: recipient,
+        lovelace: "5000000",
+        assets: { multiAsset: { map: { [policy]: { [asset]: "12088322" } } } },
+      }],
+      auxiliaryData: {
+        "65536": {
+          version: "1",
+          unit: "EAC",
+          decimals: "3",
+          methodology_hash: "1".repeat(64),
+          assurance_hash: "2".repeat(64),
+          evidence_root: "3".repeat(64),
+        },
+      },
+    },
+  })
+
+  assert.match(review, /12088322 unidades/)
+  assert.match(review, /12\.088,322 EAC/)
+  assert.match(review, /label 65536/)
+  assert.match(review, /policy verifica somente a chave/)
 })
 
 test("mint review reads quantity and recipient allocation from transaction data", () => {

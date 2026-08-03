@@ -44,6 +44,15 @@
           <p>Não informe seed phrase, chave privada ou credencial Blockfrost nesta página.</p>
         </details>
 
+        <aside class="inspection-tool" aria-label="Ferramenta externa para inspeção de CBOR">
+          <div>
+            <strong>Inspecione os artefatos CBOR</strong>
+            <p>Use o CBOR Nemo para decodificar o unsigned CBOR produzido nos exercícios.</p>
+            <small>Ferramenta de terceiros. Não informe seed phrase, chave privada ou credencial Blockfrost. Quem obtiver um signed CBOR válido poderá submetê-lo à rede.</small>
+          </div>
+          <a class="button-link secondary" href="https://cbor.nemo157.com/" target="_blank" rel="noreferrer">Abrir CBOR Nemo</a>
+        </aside>
+
         <ol class="readiness-list" aria-label="Estado dos pré-requisitos">
           <li id="backendReadiness" data-status="checking"><span class="status-dot"></span><div><strong>Backend local</strong><small>Inicie com <code>npm run dev</code>.</small></div></li>
           <li id="providerReadiness" data-status="checking"><span class="status-dot"></span><div><strong>Blockfrost Preprod</strong><small>O backend precisa de <code>BLOCKFROST_PROJECT_ID</code>.</small></div></li>
@@ -81,7 +90,8 @@
         <a href="#paymentPanel"><span>1</span> Pagamento</a>
         <a href="#metadataPanel"><span>2</span> Metadata</a>
         <a href="#multisigExercise"><span>3</span> Multisig</a>
-        <a href="#mintPanel"><span>4</span> Native Asset</a>
+        <a href="#eacMintPanel"><span>4A</span> EAC raw</a>
+        <a href="#mintPanel"><span>4B</span> CIP-25</a>
       </nav>
 
       <section class="card exercise-card" id="paymentPanel" aria-labelledby="paymentTitle">
@@ -322,14 +332,70 @@
         </section>
       </section>
 
-      <section class="card exercise-card" id="mintPanel" aria-labelledby="mintTitle">
+      <section class="card exercise-card" id="eacMintPanel" aria-labelledby="eacMintTitle">
         <header class="section-heading">
-          <p class="eyebrow">Exercício 4</p>
-          <h2 id="mintTitle">Native Asset com CIP-25</h2>
-          <p>Crie um asset nativo com policy baseada na chave da wallet e metadata CIP-25 no label 721.</p>
+          <p class="eyebrow">Exercício 4A</p>
+          <h2 id="eacMintTitle">Emissão EAC com metadata raw</h2>
+          <p>Emita o Native Asset do período de assurance de Brevik e anexe os hashes de metodologia, assurance e raiz de evidências.</p>
         </header>
         <div class="exercise-contract">
-          <div><span>Objetivo</span><p>Construir um mint e distinguir asset, policy e metadata.</p></div>
+          <div><span>Objetivo</span><p>Emitir 12088322 unidades EAC para o endereço contábil e publicar três referências de evidência na metadata.</p></div>
+          <div><span>Concluído quando</span><p>A transação estiver incluída, com 12088322 no campo mint e o payload no label 65536.</p></div>
+          <div><span>Limite</span><p>A API valida o schema. A policy verifica somente a chave; não lê a metadata, não limita a oferta e não prova os fatos industriais.</p></div>
+        </div>
+        <dl class="mint-spec" aria-label="Parâmetros fixos da emissão EAC">
+          <div><dt>Asset name</dt><dd><code>EAC-BRE-2025P01</code></dd></div>
+          <div><dt>Quantidade on-chain</dt><dd><code>12088322</code></dd></div>
+          <div><dt>Exibição</dt><dd>12.088,322 EAC</dd></div>
+          <div><dt>Metadata label</dt><dd><code>65536</code>, private use CIP-10. A metadata continua pública.</dd></div>
+        </dl>
+        <div class="form-grid">
+          <label class="wide" for="eacMintRecipient">Endereço contábil que receberá o saldo
+            <input id="eacMintRecipient" data-session-input required placeholder="addr_test..." autocomplete="off" />
+            <small>O output mantém o saldo disponível. Ele não prova uma alocação ao comprador.</small>
+          </label>
+          <label class="wide" for="eacMintMetadataJson">Metadata JSON de emissão
+            <textarea id="eacMintMetadataJson" data-session-input required rows="10" maxlength="4096" spellcheck="false">{
+  "version": 1,
+  "unit": "EAC",
+  "decimals": 3,
+  "methodology_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+  "assurance_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+  "evidence_root": "3333333333333333333333333333333333333333333333333333333333333333"
+}</textarea>
+            <small>Os três hashes preenchidos são valores sintéticos de exemplo, não evidências reais da Heidelberg Materials ou da DNV. Use somente hexadecimal minúsculo com 64 caracteres.</small>
+          </label>
+        </div>
+        <ol class="pipeline" aria-label="Progresso da emissão EAC">
+          <li data-progress-step><span>1</span><div><strong>Construir</strong><small>Cria a policy estável, o mint, o output e a metadata raw.</small></div></li>
+          <li data-progress-step><span>2</span><div><strong>Assinar</strong><small>A wallet satisfaz a chave exigida pela policy.</small></div></li>
+          <li data-progress-step><span>3</span><div><strong>Anexar</strong><small>Valida e adiciona o witness à emissão.</small></div></li>
+          <li data-progress-step><span>4</span><div><strong>Submeter</strong><small>Publica a emissão e as referências na Preprod.</small></div></li>
+          <li data-progress-step><span>5</span><div><strong>Confirmar</strong><small>Verifique campo mint, output e label 65536.</small></div></li>
+        </ol>
+        <p id="eacMintStatus" class="flow-status" role="status" aria-live="polite"></p>
+        <div id="eacMintAlert" class="flow-alert" role="alert" tabindex="-1" hidden><strong class="alert-message"></strong><p class="alert-guidance"></p><details><summary>Detalhe técnico</summary><pre class="alert-technical"></pre></details></div>
+        <div class="actions"><button id="eacMintBuild" type="button">1. Construir emissão EAC</button><button id="eacMintSign" type="button">2. Assinar com a wallet</button><button id="eacMintMerge" type="button">3. Anexar witness</button></div>
+        <div class="artifact-grid">
+          <artifact-box title="Policy, asset e metadata raw" target="eacMintDetails" description="Inclui policy id, script estável, label 65536, payload e resumo da transação."></artifact-box>
+          <artifact-box title="Unsigned EAC tx CBOR" target="eacMintUnsigned" description="Emissão antes da autorização da wallet."></artifact-box>
+          <artifact-box title="Witness set CBOR" target="eacMintWitness" description="Assinatura da chave exigida pela policy."></artifact-box>
+          <artifact-box title="Signed EAC tx CBOR" target="eacMintSigned" description="Emissão pronta para submissão dentro da validade da transação."></artifact-box>
+          <artifact-box title="Tx hash" target="eacMintTxHash" description="Identificador para verificar quantidade, output e metadata."></artifact-box>
+        </div>
+        <section class="submit-review"><h3>Revisão antes da submissão</h3><p id="eacMintSubmitSummary">Construa e assine a emissão EAC para ver o resumo.</p><label class="acknowledgement" for="eacMintAcknowledge"><input id="eacMintAcknowledge" type="checkbox" />Conferi endereço contábil, quantidade, policy, validade e referências. Entendo que a policy não valida a metadata nem os fatos industriais externos.</label><div class="actions"><button id="eacMintSubmit" type="button">4. Submeter emissão</button><button id="eacMintCheck" type="button" class="secondary">Verificar inclusão</button><a id="eacMintExplorer" class="button-link" target="_blank" rel="noreferrer" hidden>Ver no Cardanoscan</a></div></section>
+        <p id="eacMintCompletion" class="completion" role="status" hidden></p>
+        <div class="recovery-actions"><button id="eacMintRetry" type="button" hidden>Tentar novamente</button><button id="eacMintReset" type="button" class="secondary" hidden>Reiniciar emissão</button></div>
+      </section>
+
+      <section class="card exercise-card" id="mintPanel" aria-labelledby="mintTitle">
+        <header class="section-heading">
+          <p class="eyebrow">Exercício 4B</p>
+          <h2 id="mintTitle">Media token com CIP-25</h2>
+          <p>Crie um asset nativo com metadata de apresentação no label 721.</p>
+        </header>
+        <div class="exercise-contract">
+          <div><span>Objetivo</span><p>Emitir um media token com policy nativa e metadata de nome, imagem e descrição.</p></div>
           <div><span>Concluído quando</span><p>A transação estiver incluída e o asset puder ser localizado pelo policy id.</p></div>
           <div><span>Efeito da submissão</span><p>Cria unidades de um asset na Preprod, usa ao menos 5 tADA no output e paga taxa. A policy expira em cerca de três horas.</p></div>
         </div>
