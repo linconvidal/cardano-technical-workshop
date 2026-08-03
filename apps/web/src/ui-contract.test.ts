@@ -107,6 +107,12 @@ test("visual tokens use the Cardano Foundation palette", () => {
   assert.match(styles, /--font-mono: "JetBrains Mono"/)
 })
 
+test("exercise codes use a consistent monospaced tag", () => {
+  const codes = [...html.matchAll(/<span class="exercise-code">([^<]+)<\/span>/g)].map((match) => match[1])
+  assert.deepEqual(codes, ["1", "2", "3", "3.0", "3A", "3B", "4A", "4A.2", "4B"])
+  assert.match(styles, /\.exercise-code\s*\{[\s\S]*font-family: var\(--font-mono\)/)
+})
+
 test("technical log uses an accessible modal and unread-error attention marker", () => {
   assert.match(html, /id="technicalLogButton"[^>]*aria-haspopup="dialog"[^>]*aria-controls="technicalLogDialog"/s)
   assert.match(html, /class="debug-icon"[^>]*aria-hidden="true"/)

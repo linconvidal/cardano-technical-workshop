@@ -187,14 +187,44 @@ summary:focus-visible {
 }
 
 .eyebrow {
+  align-items: center;
   border-left: 3px solid var(--red-1000);
   color: var(--accent-dark);
+  display: flex;
   font-size: 0.78rem;
   font-weight: 700;
+  gap: 7px;
   letter-spacing: 0.1em;
   margin: 0 0 9px;
   padding-left: 9px;
   text-transform: uppercase;
+  width: max-content;
+}
+
+.exercise-code {
+  align-items: center;
+  background: var(--grey-1000);
+  border: 1px solid var(--grey-1000);
+  border-radius: 6px;
+  color: var(--blue-1);
+  display: inline-flex;
+  font-family: var(--font-mono);
+  font-size: 0.68em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  min-height: 1.65rem;
+  padding: 0.24rem 0.48rem;
+  text-transform: none;
+  vertical-align: 0.12em;
+  white-space: nowrap;
+}
+
+.eyebrow .exercise-code {
+  font-size: 0.72rem;
+  min-height: 1.45rem;
 }
 
 h1,
@@ -495,13 +525,16 @@ small {
 .exercise-nav span {
   align-items: center;
   background: var(--ink);
-  border-radius: 50%;
-  color: var(--grey-50);
+  border-radius: 6px;
+  color: var(--blue-1);
   display: inline-flex;
-  flex: 0 0 25px;
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
   font-size: 0.75rem;
   height: 25px;
   justify-content: center;
+  min-width: 25px;
+  padding: 0 5px;
 }
 
 .exercise-contract {

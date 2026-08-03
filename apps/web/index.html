@@ -99,7 +99,7 @@
 
       <section class="card exercise-card" id="paymentPanel" aria-labelledby="paymentTitle">
         <header class="section-heading">
-          <p class="eyebrow">Exercício 1</p>
+          <p class="eyebrow">Exercício <span class="exercise-code">1</span></p>
           <h2 id="paymentTitle">Pagamento simples</h2>
           <p>Envie tADA e acompanhe o corpo sem assinatura, o witness, a transação assinada e a inclusão em bloco.</p>
         </header>
@@ -167,7 +167,7 @@
 
       <section class="card exercise-card" id="metadataPanel" aria-labelledby="metadataTitle">
         <header class="section-heading">
-          <p class="eyebrow">Exercício 2</p>
+          <p class="eyebrow">Exercício <span class="exercise-code">2</span></p>
           <h2 id="metadataTitle">Pagamento com metadata</h2>
           <p>Envie tADA e publique uma mensagem no label 674 na mesma transação.</p>
         </header>
@@ -228,7 +228,7 @@
 
       <section class="card exercise-card" id="multisigExercise" aria-labelledby="multisigTitle">
         <header class="section-heading">
-          <p class="eyebrow">Exercício 3</p>
+          <p class="eyebrow">Exercício <span class="exercise-code">3</span></p>
           <h2 id="multisigTitle">Multisig 2-de-2</h2>
           <p>Duas chaves de pagamento diferentes precisam assinar o mesmo unsigned CBOR para movimentar o saldo do script.</p>
         </header>
@@ -239,7 +239,7 @@
         </div>
 
         <section id="multisigSetupPanel" class="subflow setup-flow" data-stage="setup" aria-busy="false" aria-labelledby="multisigSetupTitle">
-          <h3 id="multisigSetupTitle">3.0 Defina os dois signers</h3>
+          <h3 id="multisigSetupTitle"><span class="exercise-code">3.0</span> Defina os dois signers</h3>
           <p>Signer A é a wallet conectada. Signer B fornece outro endereço controlado por uma chave de pagamento diferente.</p>
           <div class="form-grid">
             <label class="wide" for="multisigSecondSigner">Endereço do signer B
@@ -258,7 +258,7 @@
         </section>
 
         <section class="subflow" id="multisigLockPanel" aria-labelledby="multisigLockTitle">
-          <h3 id="multisigLockTitle">3A. Bloqueie tADA no script</h3>
+          <h3 id="multisigLockTitle"><span class="exercise-code">3A</span> Bloqueie tADA no script</h3>
           <div class="form-grid">
             <label for="multisigLockLovelace">Valor para lock
               <input id="multisigLockLovelace" data-session-input required inputmode="numeric" pattern="[0-9]+" min="1" value="10000000" />
@@ -287,7 +287,7 @@
         </section>
 
         <section class="subflow" id="multisigUnlockPanel" aria-labelledby="multisigUnlockTitle">
-          <h3 id="multisigUnlockTitle">3B. Compartilhe, assine e desbloqueie</h3>
+          <h3 id="multisigUnlockTitle"><span class="exercise-code">3B</span> Compartilhe, assine e desbloqueie</h3>
           <ol class="handoff-list">
             <li>Signer A lista e escolhe o UTxO, depois constrói o unlock.</li>
             <li>Signer A assina e envia somente o unsigned CBOR ao signer B.</li>
@@ -337,7 +337,7 @@
 
       <section class="card exercise-card" id="eacMintPanel" aria-labelledby="eacMintTitle">
         <header class="section-heading">
-          <p class="eyebrow">Exercício 4A</p>
+          <p class="eyebrow">Exercício <span class="exercise-code">4A</span></p>
           <h2 id="eacMintTitle">Ciclo EAC: emissão e aposentadoria</h2>
           <p>Execute um exemplo Cardano inspirado no caso Brevik. A quantidade é ilustrativa e não representa a oferta alocável publicada pela Heidelberg Materials.</p>
         </header>
@@ -391,7 +391,7 @@
         <div class="recovery-actions"><button id="eacMintRetry" type="button" hidden>Tentar novamente</button><button id="eacMintReset" type="button" class="secondary" hidden>Reiniciar emissão</button></div>
 
         <section class="subflow" id="eacRetirePanel" aria-labelledby="eacRetireTitle">
-          <h3 id="eacRetireTitle">4A.2 Aposente 125,000 EAC</h3>
+          <h3 id="eacRetireTitle"><span class="exercise-code">4A.2</span> Aposente 125,000 EAC</h3>
           <p>Depois que a emissão estiver incluída e indexada, queime 125000 unidades e mantenha 11963322 unidades na wallet contábil.</p>
           <dl class="mint-spec" aria-label="Parâmetros fixos da aposentadoria EAC">
             <div><dt>Burn</dt><dd><code>-125000</code></dd></div>
@@ -433,7 +433,7 @@
 
       <section class="card exercise-card" id="mintPanel" aria-labelledby="mintTitle">
         <header class="section-heading">
-          <p class="eyebrow">Exercício 4B</p>
+          <p class="eyebrow">Exercício <span class="exercise-code">4B</span></p>
           <h2 id="mintTitle">Media token com CIP-25</h2>
           <p>Crie um asset nativo com metadata de apresentação no label 721.</p>
         </header>
