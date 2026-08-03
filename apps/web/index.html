@@ -3,191 +3,396 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
     <title>Cardano Technical Workshop</title>
     <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
-    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,700&display=swap" />
+    <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=switzer@400,500,600,700&display=swap" />
   </head>
   <body>
     <main class="shell">
-      <section class="hero">
-        <p class="eyebrow">Cardano Technical Workshop</p>
-        <h1>Workbench de transações Cardano</h1>
-        <p class="lead">
-          A página substitui o terminal da aula: cada botão produz artefatos visíveis. O backend constrói,
-          a wallet assina, a workbench mostra CBOR, witnesses, signed tx e tx hash.
-        </p>
-      </section>
-
-      <section class="card wallet-card">
-        <div>
-          <h2>0. Wallet</h2>
-          <p>Conecte a wallet CIP-30. A chave privada fica na extensão.</p>
+      <header class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Cardano Technical Workshop</p>
+          <h1>Workbench de transações Cardano</h1>
+          <p class="lead">
+            Construa, assine, inspecione e submeta transações na Cardano Preprod. A Workbench mostra cada artefato e informa o próximo passo. Você não precisa assistir a uma execução completa antes de começar.
+          </p>
         </div>
-        <label>
-          Wallet
-          <select id="walletName">
-            <option value="eternl">Eternl</option>
-            <option value="lace">Lace</option>
-            <option value="nami">Nami</option>
-            <option value="typhoncip30">Typhon</option>
+        <div class="network-badge" aria-label="Rede usada pela Workbench">
+          <span>Rede</span>
+          <strong>Preprod</strong>
+          <small>tADA e taxas reais de testnet</small>
+        </div>
+      </header>
+
+      <section class="card readiness-card" id="readinessPanel" aria-labelledby="readinessTitle">
+        <div class="section-heading">
+          <p class="eyebrow">Antes de começar</p>
+          <h2 id="readinessTitle">Prepare o ambiente</h2>
+          <p>A construção usa o backend local e o Blockfrost. A chave privada permanece na extensão CIP-30.</p>
+        </div>
+
+        <details class="setup-instructions">
+          <summary>Primeira execução local: instalar e iniciar</summary>
+          <ol>
+            <li>No terminal, entre na pasta do workshop e execute <code>npm install</code>.</li>
+            <li>Execute <code>cp .env.example .env</code> e coloque no arquivo somente o project id de um projeto Blockfrost Preprod.</li>
+            <li>Carregue o ambiente com <code>set -a; source .env; set +a</code>.</li>
+            <li>Execute <code>npm run dev</code> e mantenha o terminal aberto.</li>
+            <li>Volte a esta página. A verificação será repetida ao recarregar.</li>
+          </ol>
+          <p>Não informe seed phrase, chave privada ou credencial Blockfrost nesta página.</p>
+        </details>
+
+        <ol class="readiness-list" aria-label="Estado dos pré-requisitos">
+          <li id="backendReadiness" data-status="checking"><span class="status-dot"></span><div><strong>Backend local</strong><small>Inicie com <code>npm run dev</code>.</small></div></li>
+          <li id="providerReadiness" data-status="checking"><span class="status-dot"></span><div><strong>Blockfrost Preprod</strong><small>O backend precisa de <code>BLOCKFROST_PROJECT_ID</code>.</small></div></li>
+          <li id="walletExtensionReadiness" data-status="checking"><span class="status-dot"></span><div><strong>Wallet CIP-30</strong><small>Instale e desbloqueie uma extensão compatível.</small></div></li>
+          <li id="walletNetworkReadiness" data-status="pending"><span class="status-dot"></span><div><strong>Wallet em testnet</strong><small>Selecione Preprod na extensão antes de conectar.</small></div></li>
+          <li id="walletFundingReadiness" data-status="pending"><span class="status-dot"></span><div><strong>Saldo de tADA</strong><small>A wallet precisa de ao menos um UTxO na Preprod para construir transações.</small></div></li>
+        </ol>
+
+        <div class="wallet-connect">
+          <label for="walletName">Wallet detectada</label>
+          <select id="walletName" aria-describedby="walletHelp">
+            <option value="">Procurando extensões...</option>
           </select>
-        </label>
-        <button id="connectWallet">Conectar</button>
-        <p id="connectedAddress" class="mono muted full-row">Sem wallet conectada.</p>
+          <button id="connectWallet" type="button">Conectar wallet</button>
+          <p id="walletHelp" class="help full-row">
+            O identificador CIP-30 confirma testnet, mas não distingue Preprod de Preview. Confira o nome da rede na extensão. Sem saldo, copie seu <code>addr_test</code>, abra o <a href="https://docs.cardano.org/cardano-testnets/tools/faucet/" target="_blank" rel="noreferrer">faucet oficial</a>, selecione Pre-production e solicite test ada. Depois, reconecte para repetir a verificação.
+          </p>
+          <p id="connectedAddress" class="address-chip full-row">Nenhuma wallet conectada.</p>
+          <p id="readinessMessage" class="inline-status full-row" role="status" aria-live="polite">Verificando o ambiente...</p>
+        </div>
       </section>
 
-      <section class="card" id="paymentPanel">
-        <div class="section-heading">
+      <aside class="resume-banner" id="resumeBanner" hidden>
+        <div>
+          <strong>Há uma sessão desta aba para continuar.</strong>
+          <p id="resumeDescription">Os campos e artefatos das transações foram preservados. A wallet e o setup multisig deverão ser validados novamente.</p>
+        </div>
+        <div class="compact-actions">
+          <button id="resumeSession" type="button">Continuar sessão</button>
+          <button id="discardSession" type="button" class="secondary">Descartar</button>
+        </div>
+      </aside>
+
+      <nav class="exercise-nav" aria-label="Exercícios da Workbench">
+        <a href="#paymentPanel"><span>1</span> Pagamento</a>
+        <a href="#metadataPanel"><span>2</span> Metadata</a>
+        <a href="#multisigExercise"><span>3</span> Multisig</a>
+        <a href="#mintPanel"><span>4</span> Native Asset</a>
+      </nav>
+
+      <section class="card exercise-card" id="paymentPanel" aria-labelledby="paymentTitle">
+        <header class="section-heading">
           <p class="eyebrow">Exercício 1</p>
-          <h2>Pagamento simples</h2>
-          <p>Primeiro fluxo: só inputs, output, fee e troco. Sem metadata, sem script.</p>
+          <h2 id="paymentTitle">Pagamento simples</h2>
+          <p>Observe o ciclo mínimo de uma transação antes de adicionar metadata, mint ou scripts.</p>
+        </header>
+
+        <div class="exercise-contract">
+          <div><span>Objetivo</span><p>Enviar uma quantidade definida de lovelace para outro endereço.</p></div>
+          <div><span>Concluído quando</span><p>O hash aparecer como incluído em um bloco da Preprod.</p></div>
+          <div><span>Efeito da submissão</span><p>Gasta tADA e taxa da wallet conectada. A transferência não pode ser desfeita pela Workbench.</p></div>
         </div>
+
         <div class="form-grid">
-          <label>Destinatário <input id="paymentRecipient" placeholder="addr_test..." /></label>
-          <label>Lovelace <input id="paymentLovelace" value="2000000" /></label>
+          <label for="paymentRecipient">Destinatário Preprod
+            <input id="paymentRecipient" data-session-input required placeholder="addr_test..." autocomplete="off" />
+          </label>
+          <label for="paymentLovelace">Valor em lovelace
+            <input id="paymentLovelace" data-session-input required inputmode="numeric" pattern="[0-9]+" min="1" value="2000000" />
+            <small>1 ADA equivale a 1.000.000 lovelace.</small>
+          </label>
         </div>
+
+        <ol class="pipeline" aria-label="Progresso do pagamento">
+          <li data-progress-step><span>1</span><div><strong>Construir</strong><small>O backend consulta UTxOs e calcula inputs, outputs, taxa e troco.</small></div></li>
+          <li data-progress-step><span>2</span><div><strong>Assinar</strong><small>A extensão mostra a transação e produz um witness sem expor a chave.</small></div></li>
+          <li data-progress-step><span>3</span><div><strong>Anexar</strong><small>A Workbench valida o witness contra o corpo e cria o signed CBOR.</small></div></li>
+          <li data-progress-step><span>4</span><div><strong>Submeter</strong><small>Revise o efeito e envie a transação assinada à Preprod.</small></div></li>
+          <li data-progress-step><span>5</span><div><strong>Confirmar</strong><small>Verifique se o hash foi incluído em um bloco.</small></div></li>
+        </ol>
+
+        <p id="paymentStatus" class="flow-status" role="status" aria-live="polite"></p>
+        <div id="paymentAlert" class="flow-alert" role="alert" tabindex="-1" hidden>
+          <strong class="alert-message"></strong><p class="alert-guidance"></p>
+          <details><summary>Detalhe técnico</summary><pre class="alert-technical"></pre></details>
+        </div>
+
         <div class="actions">
-          <button id="paymentBuild">1. Construir unsigned tx</button>
-          <button id="paymentSign">2. Assinar com wallet</button>
-          <button id="paymentMerge">3. Anexar witness</button>
-          <button id="paymentSubmit">4. Submeter</button>
+          <button id="paymentBuild" type="button">1. Construir unsigned tx</button>
+          <button id="paymentSign" type="button">2. Assinar com a wallet</button>
+          <button id="paymentMerge" type="button">3. Anexar witness</button>
         </div>
+
         <div class="artifact-grid">
-          <artifact-box title="Build details" target="paymentDetails"></artifact-box>
-          <artifact-box title="Unsigned tx CBOR" target="paymentUnsigned"></artifact-box>
-          <artifact-box title="Witness set CBOR" target="paymentWitness"></artifact-box>
-          <artifact-box title="Signed tx CBOR" target="paymentSigned"></artifact-box>
-          <artifact-box title="Tx hash" target="paymentTxHash"></artifact-box>
+          <artifact-box title="Detalhes da construção" target="paymentDetails" description="Inclui a intenção declarada e o resumo derivado do corpo da transação."></artifact-box>
+          <artifact-box title="Unsigned tx CBOR" target="paymentUnsigned" description="Corpo ainda sem autorização da wallet."></artifact-box>
+          <artifact-box title="Witness set CBOR" target="paymentWitness" description="Assinatura específica para este corpo de transação."></artifact-box>
+          <artifact-box title="Signed tx CBOR" target="paymentSigned" description="Transação pronta para revisão e submissão."></artifact-box>
+          <artifact-box title="Tx hash" target="paymentTxHash" description="Identificador usado para acompanhar a inclusão na rede."></artifact-box>
         </div>
+
+        <section class="submit-review" aria-labelledby="paymentReviewTitle">
+          <h3 id="paymentReviewTitle">Revisão antes da submissão</h3>
+          <p id="paymentSubmitSummary">Construa e assine a transação para ver o resumo.</p>
+          <label class="acknowledgement" for="paymentAcknowledge">
+            <input id="paymentAcknowledge" type="checkbox" />
+            Conferi destinatário, valor e rede. Entendo que a submissão transfere tADA na Preprod.
+          </label>
+          <div class="actions">
+            <button id="paymentSubmit" type="button">4. Submeter na Preprod</button>
+            <button id="paymentCheck" type="button" class="secondary">Verificar inclusão</button>
+            <a id="paymentExplorer" class="button-link" target="_blank" rel="noreferrer" hidden>Ver no Cardanoscan</a>
+          </div>
+        </section>
+        <p id="paymentCompletion" class="completion" role="status" hidden></p>
+        <div class="recovery-actions"><button id="paymentRetry" type="button" hidden>Tentar novamente</button><button id="paymentReset" type="button" class="secondary" hidden>Reiniciar exercício</button></div>
       </section>
 
-      <section class="card" id="metadataPanel">
-        <div class="section-heading">
+      <section class="card exercise-card" id="metadataPanel" aria-labelledby="metadataTitle">
+        <header class="section-heading">
           <p class="eyebrow">Exercício 2</p>
-          <h2>Pagamento com metadata</h2>
-          <p>Mesmo pagamento, mas agora o backend adiciona <code>attachMetadata</code> no label 674.</p>
+          <h2 id="metadataTitle">Pagamento com metadata</h2>
+          <p>Repita o fluxo anterior e publique uma mensagem no label 674.</p>
+        </header>
+
+        <div class="exercise-contract">
+          <div><span>Objetivo</span><p>Relacionar uma mensagem pública a uma transação de pagamento.</p></div>
+          <div><span>Concluído quando</span><p>A transação estiver incluída e o label 674 puder ser inspecionado.</p></div>
+          <div><span>Efeito da submissão</span><p>Transfere tADA e publica a mensagem permanentemente. Não use dados pessoais ou sigilosos.</p></div>
         </div>
+
         <div class="form-grid">
-          <label>Destinatário <input id="metadataRecipient" placeholder="addr_test..." /></label>
-          <label>Lovelace <input id="metadataLovelace" value="2000000" /></label>
-          <label class="wide">Mensagem <input id="metadataMessage" value="Hello, Cardano!" /></label>
+          <label for="metadataRecipient">Destinatário Preprod
+            <input id="metadataRecipient" data-session-input required placeholder="addr_test..." autocomplete="off" />
+          </label>
+          <label for="metadataLovelace">Valor em lovelace
+            <input id="metadataLovelace" data-session-input required inputmode="numeric" pattern="[0-9]+" min="1" value="2000000" />
+          </label>
+          <label class="wide" for="metadataMessage">Mensagem pública
+            <input id="metadataMessage" data-session-input required value="Hello, Cardano!" maxlength="64" autocomplete="off" />
+            <small>O conteúdo ficará visível na blockchain.</small>
+          </label>
+        </div>
+
+        <ol class="pipeline" aria-label="Progresso da transação com metadata">
+          <li data-progress-step><span>1</span><div><strong>Construir</strong><small>O backend anexa o label 674 e calcula a transação.</small></div></li>
+          <li data-progress-step><span>2</span><div><strong>Assinar</strong><small>A wallet autoriza a transação exata.</small></div></li>
+          <li data-progress-step><span>3</span><div><strong>Anexar</strong><small>O witness validado vira parte do signed CBOR.</small></div></li>
+          <li data-progress-step><span>4</span><div><strong>Submeter</strong><small>A mensagem e o pagamento são enviados à Preprod.</small></div></li>
+          <li data-progress-step><span>5</span><div><strong>Confirmar</strong><small>Verifique inclusão e metadata no explorador.</small></div></li>
+        </ol>
+
+        <p id="metadataStatus" class="flow-status" role="status" aria-live="polite"></p>
+        <div id="metadataAlert" class="flow-alert" role="alert" tabindex="-1" hidden>
+          <strong class="alert-message"></strong><p class="alert-guidance"></p>
+          <details><summary>Detalhe técnico</summary><pre class="alert-technical"></pre></details>
         </div>
         <div class="actions">
-          <button id="metadataBuild">1. Construir tx com metadata</button>
-          <button id="metadataSign">2. Assinar</button>
-          <button id="metadataMerge">3. Anexar witness</button>
-          <button id="metadataSubmit">4. Submeter</button>
+          <button id="metadataBuild" type="button">1. Construir tx com metadata</button>
+          <button id="metadataSign" type="button">2. Assinar com a wallet</button>
+          <button id="metadataMerge" type="button">3. Anexar witness</button>
         </div>
         <div class="artifact-grid">
-          <artifact-box title="Build details" target="metadataDetails"></artifact-box>
-          <artifact-box title="Unsigned tx CBOR" target="metadataUnsigned"></artifact-box>
-          <artifact-box title="Witness set CBOR" target="metadataWitness"></artifact-box>
-          <artifact-box title="Signed tx CBOR" target="metadataSigned"></artifact-box>
-          <artifact-box title="Tx hash" target="metadataTxHash"></artifact-box>
+          <artifact-box title="Detalhes e metadata" target="metadataDetails" description="Mostra label, mensagem e resumo do corpo da transação."></artifact-box>
+          <artifact-box title="Unsigned tx CBOR" target="metadataUnsigned" description="Transação com metadata antes da assinatura."></artifact-box>
+          <artifact-box title="Witness set CBOR" target="metadataWitness" description="Assinatura retornada pela wallet."></artifact-box>
+          <artifact-box title="Signed tx CBOR" target="metadataSigned" description="Transação com metadata e witness anexado."></artifact-box>
+          <artifact-box title="Tx hash" target="metadataTxHash" description="Identificador para verificar inclusão e metadata."></artifact-box>
         </div>
+        <section class="submit-review" aria-labelledby="metadataReviewTitle">
+          <h3 id="metadataReviewTitle">Revisão antes da submissão</h3>
+          <p id="metadataSubmitSummary">Construa e assine a transação para ver o resumo.</p>
+          <label class="acknowledgement" for="metadataAcknowledge"><input id="metadataAcknowledge" type="checkbox" />Conferi destinatário, valor e mensagem pública. Entendo que a metadata ficará visível na Preprod.</label>
+          <div class="actions"><button id="metadataSubmit" type="button">4. Submeter na Preprod</button><button id="metadataCheck" type="button" class="secondary">Verificar inclusão</button><a id="metadataExplorer" class="button-link" target="_blank" rel="noreferrer" hidden>Ver no Cardanoscan</a></div>
+        </section>
+        <p id="metadataCompletion" class="completion" role="status" hidden></p>
+        <div class="recovery-actions"><button id="metadataRetry" type="button" hidden>Tentar novamente</button><button id="metadataReset" type="button" class="secondary" hidden>Reiniciar exercício</button></div>
       </section>
 
-      <section class="card" id="mintPanel">
-        <div class="section-heading">
+      <section class="card exercise-card" id="multisigExercise" aria-labelledby="multisigTitle">
+        <header class="section-heading">
           <p class="eyebrow">Exercício 3</p>
-          <h2>Mint CIP-25</h2>
-          <p>Policy nativa baseada na chave da wallet conectada. O backend constrói, a wallet autoriza o mint.</p>
+          <h2 id="multisigTitle">Multisig 2-de-2</h2>
+          <p>Duas chaves de pagamento diferentes precisam assinar o mesmo unsigned CBOR para movimentar o saldo do script.</p>
+        </header>
+        <div class="exercise-contract">
+          <div><span>Objetivo</span><p>Criar um script 2-de-2, bloquear tADA e desbloquear com dois witnesses.</p></div>
+          <div><span>Concluído quando</span><p>O unlock estiver incluído. O valor escolhido vai ao destino e o troco volta ao script.</p></div>
+          <div><span>Risco</span><p>Se uma chave estiver errada ou indisponível, o saldo bloqueado pode ficar inacessível.</p></div>
         </div>
-        <div class="form-grid">
-          <label class="wide">Recipient address <input id="mintRecipient" placeholder="addr_test..." /></label>
-          <label>Asset name <input id="mintTokenName" value="MyLittleToken" /></label>
-          <label>Quantidade <input id="mintAmount" value="1" /></label>
-          <label>Metadata name <input id="mintMetadataName" value="My Little Token" /></label>
-          <label class="wide">Image URI <input id="mintImage" value="ipfs://QmRhTTbUrPYEw3mJGGhQqQST9k86v1DPBiTTWJGKDJsVFw" /></label>
-          <label class="wide">Description <input id="mintDescription" value="This is a test token minted with a Cardano native script" /></label>
-        </div>
-        <div class="actions">
-          <button id="mintBuild">1. Construir mint tx</button>
-          <button id="mintSign">2. Assinar</button>
-          <button id="mintMerge">3. Anexar witness</button>
-          <button id="mintSubmit">4. Submeter</button>
-        </div>
-        <div class="artifact-grid">
-          <artifact-box title="Policy, asset e metadata" target="mintDetails"></artifact-box>
-          <artifact-box title="Unsigned mint tx CBOR" target="mintUnsigned"></artifact-box>
-          <artifact-box title="Witness set CBOR" target="mintWitness"></artifact-box>
-          <artifact-box title="Signed mint tx CBOR" target="mintSigned"></artifact-box>
-          <artifact-box title="Tx hash" target="mintTxHash"></artifact-box>
-        </div>
+
+        <section id="multisigSetupPanel" class="subflow setup-flow" data-stage="setup" aria-busy="false" aria-labelledby="multisigSetupTitle">
+          <h3 id="multisigSetupTitle">3.0 Defina os dois signers</h3>
+          <p>Signer A é a wallet conectada. Signer B fornece outro endereço controlado por uma chave de pagamento diferente.</p>
+          <div class="form-grid">
+            <label class="wide" for="multisigSecondSigner">Endereço do signer B
+              <input id="multisigSecondSigner" data-session-input required placeholder="addr_test..." autocomplete="off" />
+            </label>
+          </div>
+          <div class="actions"><button id="multisigDescribe" type="button">Gerar script address</button><button id="multisigListUtxos" type="button" class="secondary">Listar UTxOs do script</button></div>
+          <p id="multisigSetupStatus" class="flow-status" role="status" aria-live="polite">Conecte o signer A e informe o endereço do signer B.</p>
+          <div id="multisigSetupAlert" class="flow-alert" role="alert" tabindex="-1" hidden><strong></strong><p></p><details><summary>Detalhe técnico</summary><pre></pre></details></div>
+          <div class="artifact-grid">
+            <artifact-box title="Native script e endereço" target="multisigDetails" description="Inclui script 2-de-2, hashes das duas chaves e script address."></artifact-box>
+            <artifact-box title="UTxOs disponíveis" target="multisigUtxos" description="Estado atual do script segundo o Blockfrost Preprod."></artifact-box>
+          </div>
+          <label class="acknowledgement setup-acknowledgement" for="multisigSetupAcknowledge"><input id="multisigSetupAcknowledge" type="checkbox" disabled />Conferi script address e as duas payment key hashes. Vou usar exatamente essas duas wallets no lock e no unlock.</label>
+          <fieldset id="multisigUtxoChoices" class="utxo-choices" hidden><legend>Escolha o UTxO a consumir</legend><div></div></fieldset>
+        </section>
+
+        <section class="subflow" id="multisigLockPanel" aria-labelledby="multisigLockTitle">
+          <h3 id="multisigLockTitle">3A. Bloqueie tADA no script</h3>
+          <div class="form-grid">
+            <label for="multisigLockLovelace">Valor para lock
+              <input id="multisigLockLovelace" data-session-input required inputmode="numeric" pattern="[0-9]+" min="1" value="10000000" />
+            </label>
+          </div>
+          <ol class="pipeline" aria-label="Progresso do lock multisig">
+            <li data-progress-step><span>1</span><div><strong>Construir</strong><small>Cria um output no script address.</small></div></li>
+            <li data-progress-step><span>2</span><div><strong>Assinar</strong><small>Signer A autoriza o gasto de seus inputs.</small></div></li>
+            <li data-progress-step><span>3</span><div><strong>Anexar</strong><small>O witness de A é validado e anexado.</small></div></li>
+            <li data-progress-step><span>4</span><div><strong>Submeter</strong><small>Move tADA para o script 2-de-2.</small></div></li>
+            <li data-progress-step><span>5</span><div><strong>Confirmar</strong><small>Depois da inclusão, liste os UTxOs do script.</small></div></li>
+          </ol>
+          <p id="multisigLockStatus" class="flow-status" role="status" aria-live="polite"></p>
+          <div id="multisigLockAlert" class="flow-alert" role="alert" tabindex="-1" hidden><strong class="alert-message"></strong><p class="alert-guidance"></p><details><summary>Detalhe técnico</summary><pre class="alert-technical"></pre></details></div>
+          <div class="actions"><button id="multisigLockBuild" type="button">1. Construir lock tx</button><button id="multisigLockSign" type="button">2. Assinar lock</button><button id="multisigLockMerge" type="button">3. Anexar witness</button></div>
+          <div class="artifact-grid">
+            <artifact-box title="Detalhes do lock" target="multisigLockDetails" description="Mostra script address, signers, valor e corpo calculado."></artifact-box>
+            <artifact-box title="Unsigned lock tx CBOR" target="multisigLockUnsigned" description="Transação que cria o UTxO no script."></artifact-box>
+            <artifact-box title="Witness do lock" target="multisigLockWitness" description="Assinatura de A para os inputs do lock."></artifact-box>
+            <artifact-box title="Signed lock tx CBOR" target="multisigLockSigned" description="Lock pronto para submissão."></artifact-box>
+            <artifact-box title="Lock tx hash" target="multisigLockTxHash" description="Use este hash para acompanhar a inclusão."></artifact-box>
+          </div>
+          <section class="submit-review"><h4>Revisão do lock</h4><p id="multisigLockSubmitSummary">Construa e assine o lock para ver o resumo.</p><label class="acknowledgement" for="multisigLockAcknowledge"><input id="multisigLockAcknowledge" type="checkbox" />Conferi os dois signers e o valor. Entendo que ambos serão necessários para recuperar o saldo.</label><div class="actions"><button id="multisigLockSubmit" type="button">4. Submeter lock</button><button id="multisigLockCheck" type="button" class="secondary">Verificar inclusão</button><a id="multisigLockExplorer" class="button-link" target="_blank" rel="noreferrer" hidden>Ver no Cardanoscan</a></div></section>
+          <p id="multisigLockCompletion" class="completion" role="status" hidden></p>
+          <div class="recovery-actions"><button id="multisigLockRetry" type="button" hidden>Tentar novamente</button><button id="multisigLockReset" type="button" class="secondary" hidden>Reiniciar lock local</button></div>
+        </section>
+
+        <section class="subflow" id="multisigUnlockPanel" aria-labelledby="multisigUnlockTitle">
+          <h3 id="multisigUnlockTitle">3B. Compartilhe, assine e desbloqueie</h3>
+          <ol class="handoff-list">
+            <li>Signer A lista e escolhe o UTxO, depois constrói o unlock.</li>
+            <li>Signer A assina e envia somente o unsigned CBOR ao signer B.</li>
+            <li>Signer B abre a Workbench, conecta sua wallet, cola o unsigned CBOR, assina e devolve seu witness.</li>
+            <li>Signer A cola o witness recebido, anexa os dois e submete.</li>
+          </ol>
+          <div class="form-grid">
+            <label class="wide" for="multisigDestination">Destino do unlock
+              <input id="multisigDestination" data-session-input required placeholder="addr_test..." autocomplete="off" />
+            </label>
+            <label for="multisigUnlockLovelace">Valor para unlock
+              <input id="multisigUnlockLovelace" data-session-input required inputmode="numeric" pattern="[0-9]+" min="1" value="2000000" />
+            </label>
+            <label class="wide" for="multisigScriptUtxo">UTxO do script
+              <input id="multisigScriptUtxo" data-session-input required pattern="[0-9a-fA-F]{64}#[0-9]+" placeholder="txhash#index" autocomplete="off" />
+              <small>Use “Listar UTxOs do script”. Se o lock acabou de ser incluído, aguarde a indexação.</small>
+            </label>
+          </div>
+          <ol class="pipeline" aria-label="Progresso do unlock multisig">
+            <li data-progress-step><span>1</span><div><strong>Construir ou importar</strong><small>Todos os signers devem assinar o mesmo unsigned CBOR.</small></div></li>
+            <li data-progress-step><span>2</span><div><strong>Coletar duas assinaturas</strong><small>Cada witness deve corresponder a uma das chaves exigidas.</small></div></li>
+            <li data-progress-step><span>3</span><div><strong>Anexar</strong><small>A Workbench valida assinaturas, signers e corpo da transação.</small></div></li>
+            <li data-progress-step><span>4</span><div><strong>Submeter</strong><small>Consome o UTxO escolhido e devolve o troco ao script.</small></div></li>
+            <li data-progress-step><span>5</span><div><strong>Confirmar</strong><small>O exercício termina após inclusão do unlock.</small></div></li>
+          </ol>
+          <p id="multisigUnlockStatus" class="flow-status" role="status" aria-live="polite"></p>
+          <div id="multisigUnlockAlert" class="flow-alert" role="alert" tabindex="-1" hidden><strong class="alert-message"></strong><p class="alert-guidance"></p><details><summary>Detalhe técnico</summary><pre class="alert-technical"></pre></details></div>
+          <section class="sign-review" aria-labelledby="multisigUnlockSignReviewTitle">
+            <h4 id="multisigUnlockSignReviewTitle">Revisão obrigatória antes de assinar</h4>
+            <p id="multisigUnlockSignSummary">Construa ou cole o unsigned CBOR para inspecionar UTxO, destino, valor, troco e signers.</p>
+            <label class="acknowledgement" for="multisigUnlockSignAcknowledge"><input id="multisigUnlockSignAcknowledge" type="checkbox" />Conferi os dados derivados do CBOR e reconheço este unlock como a transação combinada entre os dois signers.</label>
+          </section>
+          <div class="actions"><button id="multisigUnlockBuild" type="button">1. Construir unlock tx</button><button id="multisigUnlockSign" type="button">2. Assinar CBOR revisado</button><button id="multisigUnlockMerge" type="button">3. Anexar os dois witnesses</button></div>
+          <div class="artifact-grid">
+            <artifact-box title="Detalhes do unlock" target="multisigUnlockDetails" description="Mostra UTxO consumido, destino, signers e troco do script."></artifact-box>
+            <artifact-box title="Unsigned unlock tx CBOR" target="multisigUnlockUnsigned" description="Signer A envia este CBOR ao signer B. Signer B pode colar aqui." editable></artifact-box>
+            <artifact-box title="Witness da wallet atual" target="multisigUnlockWitnessA" description="Copie e envie de volta se você estiver atuando como signer B."></artifact-box>
+            <artifact-box title="Witness recebido" target="multisigUnlockWitnessB" description="Signer A cola aqui o witness devolvido pelo signer B." editable></artifact-box>
+            <artifact-box title="Signed unlock tx CBOR" target="multisigUnlockSigned" description="Só é criado após validar as duas assinaturas exigidas."></artifact-box>
+            <artifact-box title="Unlock tx hash" target="multisigUnlockTxHash" description="Identificador do unlock submetido."></artifact-box>
+          </div>
+          <section class="submit-review"><h4>Revisão do unlock</h4><p id="multisigUnlockSubmitSummary">Construa, colete e anexe os witnesses para ver o resumo.</p><label class="acknowledgement" for="multisigUnlockAcknowledge"><input id="multisigUnlockAcknowledge" type="checkbox" />Conferi UTxO, destino, valor e os dois signers. Entendo que o UTxO será consumido e o troco voltará ao script.</label><div class="actions"><button id="multisigUnlockSubmit" type="button">4. Submeter unlock</button><button id="multisigUnlockCheck" type="button" class="secondary">Verificar inclusão</button><a id="multisigUnlockExplorer" class="button-link" target="_blank" rel="noreferrer" hidden>Ver no Cardanoscan</a></div></section>
+          <p id="multisigUnlockCompletion" class="completion" role="status" hidden></p>
+          <div class="recovery-actions"><button id="multisigUnlockRetry" type="button" hidden>Tentar novamente</button><button id="multisigUnlockReset" type="button" class="secondary" hidden>Reiniciar unlock local</button></div>
+        </section>
       </section>
 
-      <section class="card" id="multisigPanel">
-        <div class="section-heading">
+      <section class="card exercise-card" id="mintPanel" aria-labelledby="mintTitle">
+        <header class="section-heading">
           <p class="eyebrow">Exercício 4</p>
-          <h2>Multisig 2-de-2</h2>
-          <p>Use a página como bancada para copiar CBOR e witnesses entre signatários.</p>
+          <h2 id="mintTitle">Native Asset com CIP-25</h2>
+          <p>Crie um asset nativo com policy baseada na chave da wallet e metadata CIP-25 no label 721.</p>
+        </header>
+        <div class="exercise-contract">
+          <div><span>Objetivo</span><p>Construir um mint e distinguir asset, policy e metadata.</p></div>
+          <div><span>Concluído quando</span><p>A transação estiver incluída e o asset puder ser localizado pelo policy id.</p></div>
+          <div><span>Efeito da submissão</span><p>Cria unidades de um asset na Preprod, usa ao menos 5 tADA no output e paga taxa. A policy expira em cerca de três horas.</p></div>
         </div>
         <div class="form-grid">
-          <label class="wide">Segundo signer address <input id="multisigSecondSigner" placeholder="addr_test..." /></label>
-          <label>Valor para lock <input id="multisigLockLovelace" value="10000000" /></label>
-          <label>Valor para unlock <input id="multisigUnlockLovelace" value="2000000" /></label>
-          <label class="wide">Destino do unlock <input id="multisigDestination" placeholder="addr_test..." /></label>
-          <label class="wide">Script UTxO para unlock <input id="multisigScriptUtxo" placeholder="txhash#index. Liste UTxOs depois do lock." /></label>
+          <label class="wide" for="mintRecipient">Endereço que receberá o asset
+            <input id="mintRecipient" data-session-input required placeholder="addr_test..." autocomplete="off" />
+          </label>
+          <label for="mintTokenName">Asset name
+            <input id="mintTokenName" data-session-input required value="MyLittleToken" maxlength="32" autocomplete="off" />
+          </label>
+          <label for="mintAmount">Quantidade
+            <input id="mintAmount" data-session-input required inputmode="numeric" pattern="[0-9]+" min="1" value="1" />
+          </label>
+          <label for="mintMetadataName">Nome na metadata
+            <input id="mintMetadataName" data-session-input required value="My Little Token" maxlength="64" autocomplete="off" />
+          </label>
+          <label class="wide" for="mintImage">Image URI
+            <input id="mintImage" data-session-input required value="ipfs://QmRhTTbUrPYEw3mJGGhQqQST9k86v1DPBiTTWJGKDJsVFw" maxlength="2048" autocomplete="off" />
+          </label>
+          <label class="wide" for="mintDescription">Description
+            <input id="mintDescription" data-session-input required value="This is a test token minted with a Cardano native script" maxlength="2048" autocomplete="off" />
+            <small>Campos CIP-25 acima de 64 bytes são divididos quando permitido; o nome da metadata precisa caber em 64 bytes.</small>
+          </label>
         </div>
-        <div class="actions">
-          <button id="multisigDescribe">0. Gerar script address</button>
-          <button id="multisigListUtxos">Listar UTxOs do script</button>
-        </div>
-        <div class="artifact-grid one-col">
-          <artifact-box title="Native script, script address e signers" target="multisigDetails"></artifact-box>
-          <artifact-box title="Script UTxOs disponíveis" target="multisigUtxos"></artifact-box>
-        </div>
-
-        <h3>4A. Lock ADA no script</h3>
-        <div class="actions">
-          <button id="multisigLockBuild">1. Construir lock tx</button>
-          <button id="multisigLockSign">2. Assinar lock</button>
-          <button id="multisigLockMerge">3. Anexar witness</button>
-          <button id="multisigLockSubmit">4. Submeter lock</button>
-        </div>
+        <ol class="pipeline" aria-label="Progresso do mint">
+          <li data-progress-step><span>1</span><div><strong>Construir</strong><small>Cria policy, asset, metadata, validade e output do mint.</small></div></li>
+          <li data-progress-step><span>2</span><div><strong>Assinar</strong><small>A wallet satisfaz o required signer da policy.</small></div></li>
+          <li data-progress-step><span>3</span><div><strong>Anexar</strong><small>Valida e adiciona o witness ao mint.</small></div></li>
+          <li data-progress-step><span>4</span><div><strong>Submeter</strong><small>Publica o mint e a metadata na Preprod.</small></div></li>
+          <li data-progress-step><span>5</span><div><strong>Confirmar</strong><small>Verifique inclusão, policy id e asset name.</small></div></li>
+        </ol>
+        <p id="mintStatus" class="flow-status" role="status" aria-live="polite"></p>
+        <div id="mintAlert" class="flow-alert" role="alert" tabindex="-1" hidden><strong class="alert-message"></strong><p class="alert-guidance"></p><details><summary>Detalhe técnico</summary><pre class="alert-technical"></pre></details></div>
+        <div class="actions"><button id="mintBuild" type="button">1. Construir mint tx</button><button id="mintSign" type="button">2. Assinar com a wallet</button><button id="mintMerge" type="button">3. Anexar witness</button></div>
         <div class="artifact-grid">
-          <artifact-box title="Lock details" target="multisigLockDetails"></artifact-box>
-          <artifact-box title="Unsigned lock tx CBOR" target="multisigLockUnsigned"></artifact-box>
-          <artifact-box title="Lock witness CBOR" target="multisigLockWitness"></artifact-box>
-          <artifact-box title="Signed lock tx CBOR" target="multisigLockSigned"></artifact-box>
-          <artifact-box title="Lock tx hash" target="multisigLockTxHash"></artifact-box>
+          <artifact-box title="Policy, asset e metadata" target="mintDetails" description="Inclui policy id, script, validade, metadata 721 e resumo da transação."></artifact-box>
+          <artifact-box title="Unsigned mint tx CBOR" target="mintUnsigned" description="Mint antes da autorização da wallet."></artifact-box>
+          <artifact-box title="Witness set CBOR" target="mintWitness" description="Assinatura da chave exigida pela policy."></artifact-box>
+          <artifact-box title="Signed mint tx CBOR" target="mintSigned" description="Mint pronto para submissão enquanto a policy estiver válida."></artifact-box>
+          <artifact-box title="Tx hash" target="mintTxHash" description="Identificador para verificar o asset na Preprod."></artifact-box>
         </div>
-
-        <h3>4B. Unlock com duas assinaturas</h3>
-        <p class="muted">
-          O witness recebido vem do outro signer. Envie para ele o unsigned CBOR abaixo. Ele pode colar esse CBOR no
-          próprio campo <code>Unsigned unlock tx CBOR</code> e assinar com a wallet dele, ou usar o CLI <code>sign-cbor</code>.
-        </p>
-        <div class="actions">
-          <button id="multisigUnlockBuild">1. Construir unlock tx</button>
-          <button id="multisigUnlockSignA">2. Assinar CBOR colado com a wallet atual</button>
-          <button id="multisigUnlockMerge">3. Anexar meu witness + witness recebido</button>
-          <button id="multisigUnlockSubmit">4. Submeter unlock</button>
-        </div>
-        <div class="artifact-grid">
-          <artifact-box title="Unlock details" target="multisigUnlockDetails"></artifact-box>
-          <artifact-box title="Unsigned unlock tx CBOR" target="multisigUnlockUnsigned"></artifact-box>
-          <artifact-box title="Meu witness CBOR" target="multisigUnlockWitnessA"></artifact-box>
-          <artifact-box title="Witness recebido, cole aqui" target="multisigUnlockWitnessB"></artifact-box>
-          <artifact-box title="Signed unlock tx CBOR" target="multisigUnlockSigned"></artifact-box>
-          <artifact-box title="Unlock tx hash" target="multisigUnlockTxHash"></artifact-box>
-        </div>
+        <section class="submit-review"><h3>Revisão antes da submissão</h3><p id="mintSubmitSummary">Construa e assine o mint para ver o resumo.</p><label class="acknowledgement" for="mintAcknowledge"><input id="mintAcknowledge" type="checkbox" />Conferi destinatário, quantidade, policy e validade. Entendo que a submissão cria o asset e paga taxa na Preprod.</label><div class="actions"><button id="mintSubmit" type="button">4. Submeter mint</button><button id="mintCheck" type="button" class="secondary">Verificar inclusão</button><a id="mintExplorer" class="button-link" target="_blank" rel="noreferrer" hidden>Ver no Cardanoscan</a></div></section>
+        <p id="mintCompletion" class="completion" role="status" hidden></p>
+        <div class="recovery-actions"><button id="mintRetry" type="button" hidden>Tentar novamente</button><button id="mintReset" type="button" class="secondary" hidden>Reiniciar exercício</button></div>
       </section>
 
-      <section class="card">
-        <h2>Log da workbench</h2>
+      <p id="clipboardStatus" class="sr-only" role="status" aria-live="polite"></p>
+
+    <details class="card diagnostic-log">
+        <summary>Log técnico da Workbench</summary>
+        <p>Use este log para diagnóstico. O estado e a recuperação aparecem junto de cada exercício.</p>
         <pre id="log"></pre>
-      </section>
+      </details>
     </main>
 
     <template id="artifactTemplate">
-      <div class="artifact">
-        <div class="artifact-header">
-          <strong></strong>
+      <details class="artifact">
+        <summary class="artifact-header">
+          <span><strong class="artifact-title"></strong><small class="artifact-description"></small></span>
           <button type="button" class="copy-button">Copiar</button>
-        </div>
+        </summary>
         <textarea spellcheck="false"></textarea>
-      </div>
+      </details>
     </template>
 
     <script type="module" src="/src/main.ts"></script>

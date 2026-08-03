@@ -1,151 +1,128 @@
-# Passo a passo do Cardano Technical Workshop
+# Roteiro de facilitação do Cardano Technical Workshop
+
+A Workbench web contém as instruções operacionais, o estado, a recuperação e a condição de conclusão de cada exercício. Este roteiro orienta a facilitação e evita antecipar a solução antes da primeira tentativa dos participantes.
 
 ## 1. Preparação
 
-1. Instalar dependências:
+Antes da aula:
 
 ```bash
 npm install
-```
-
-2. Configurar Blockfrost preprod:
-
-```bash
 cp .env.example .env
-# edite .env e carregue as variáveis no shell atual
 set -a; source .env; set +a
-```
-
-3. Para o Caminho A, criar `.seedphrase` ou exportar `WALLET_MNEMONIC`.
-4. Para o Caminho B, deixar a wallet CIP-30 em preprod.
-5. Validar o projeto:
-
-```bash
+npm test
 npm run build
+npm run dev
 ```
 
-## 2. Modelo mental
+Confirme no navegador:
 
-1. Toda ação em Cardano vira uma transação.
-2. Construir uma transação não exige chave privada.
-3. Assinar é a fronteira de custódia.
-4. Submeter só entrega uma transação assinada para a rede.
-5. A mesma biblioteca Cardano roda nos dois lados: Node.js no backend e TypeScript no navegador.
+- backend local disponível;
+- Blockfrost Preprod configurado e saudável;
+- wallet CIP-30 detectada;
+- wallet explicitamente configurada em Preprod;
+- ao menos um UTxO com tADA;
+- duas wallets com chaves de pagamento distintas para o multisig.
 
-Pergunta central da aula:
+Use wallets descartáveis de testnet. Não use seed ou chave de produção.
+
+## 2. Abertura participante-led
+
+A introdução deve ser curta:
+
+1. A Workbench usa Cardano Preprod e movimenta tADA real de testnet.
+2. O backend constrói a transação sem receber a chave privada.
+3. A wallet assina o corpo exato e devolve um witness.
+4. O navegador valida e anexa o witness.
+5. O backend submete a transação assinada.
+6. Um hash submetido ainda pode estar pendente; conclusão exige inclusão em bloco.
+
+Depois dessa moldura, os participantes iniciam o exercício diretamente. O facilitador observa o primeiro contato e responde dúvidas sem executar todo o caminho antes deles.
+
+## 3. Modelo mental
+
+Pergunta central:
 
 ```text
 Onde está a chave?
 ```
 
-## 3. Caminho A: chave no backend
+Distinções que devem aparecer durante a prática:
 
-Este caminho é para automação, scripts e demonstração controlada.
+- construir não autoriza gasto;
+- witness é uma assinatura para um corpo específico;
+- signed CBOR contém corpo e witnesses;
+- submeter entrega bytes assinados ao provedor;
+- transaction hash identifica a transação;
+- inclusão em bloco é diferente de aceitação para submissão;
+- a blockchain prova a transação e seus artefatos, não a verdade de uma afirmação externa.
 
-1. Mostrar `Client.make(preprod).withBlockfrost(...).withSeed(...)`.
-2. Rodar:
+## 4. Caminho CLI com chave no backend
+
+Este caminho é uma demonstração controlada de automação, não o fluxo principal de uma dApp com usuário final.
 
 ```bash
 npm run start -- address
-```
-
-3. Explicar `.seedphrase`, derivação de address e risco de custódia.
-4. Enviar ADA pelo backend:
-
-```bash
 npm run start -- send-ada addr_test... 100000000
 ```
 
-5. Abrir a transação no Cardanoscan.
-6. Reforçar: é poderoso, mas não é o fluxo principal de uma dApp com usuário final.
+Mostre:
 
-## 4. Caminho B: chave no frontend
+- `Client.make(preprod).withBlockfrost(...).withSeed(...)`;
+- derivação de endereço;
+- custódia da seed pelo processo;
+- diferença em relação à assinatura CIP-30.
 
-Este é o fluxo principal do workshop.
+## 5. Workbench web
 
-```text
-frontend conecta wallet
-frontend envia address para backend
-backend constrói unsigned tx com withAddress(address)
-frontend assina com withCip30(api)
-frontend anexa witness set
-backend submete via Blockfrost
-```
-
-Rodar a workbench:
-
-```bash
-npm run dev
-```
-
-Abrir:
-
-```text
-http://localhost:5173/
-```
-
-ou:
+Abra:
 
 ```text
 http://127.0.0.1:5173/
 ```
 
-A página é uma bancada de aula, não um app final. Ela torna visíveis os artefatos que normalmente ficariam escondidos no terminal: CBOR da transação, witness set, transação assinada, policy script, script address e tx hash.
+A interface é a fonte de verdade para:
 
-## 5. Estrutura da workbench
+- pré-requisitos;
+- objetivo e resultado esperado;
+- próximo passo habilitado;
+- artefatos intermediários;
+- efeitos da submissão;
+- retry, reset e restauração;
+- transaction hash, estado pendente e inclusão.
 
-Cada exercício segue a mesma sequência:
-
-1. Preparar parâmetros.
-2. Construir unsigned tx no backend.
-3. Mostrar unsigned tx CBOR.
-4. Assinar com a wallet CIP-30.
-5. Mostrar witness set CBOR.
-6. Anexar witness à transação.
-7. Mostrar signed tx CBOR.
-8. Submeter.
-9. Mostrar tx hash.
-
-Essa repetição é intencional. Ela mostra que o padrão é sempre o mesmo e que cada exercício só adiciona uma peça nova.
+Não explique todos os artefatos antecipadamente. Peça que o participante diga o que mudou após cada etapa.
 
 ## 6. Exercício 1: pagamento simples
 
-Objetivo: entender o ciclo mínimo.
+Foco conceitual:
 
-1. Conectar a wallet.
-2. Preencher destinatário e lovelace.
-3. Clicar em `1. Construir unsigned tx`.
-4. Observar `Build details` e `Unsigned tx CBOR`.
-5. Clicar em `2. Assinar com wallet`.
-6. Observar `Witness set CBOR`.
-7. Clicar em `3. Anexar witness`.
-8. Observar `Signed tx CBOR`.
-9. Clicar em `4. Submeter`.
-10. Conferir `Tx hash`.
+- inputs e outputs;
+- fee e troco;
+- unsigned transaction;
+- witness;
+- signed transaction;
+- submissão e inclusão.
 
-Código principal no backend:
+Perguntas após a tentativa:
 
-```ts
-Client.make(preprod)
-  .withBlockfrost(...)
-  .withAddress(userAddress)
-  .newTx()
-  .payToAddress(...)
-  .build()
-```
+- O backend precisou da chave privada para construir?
+- Qual artefato mudou quando a wallet assinou?
+- O que impede usar esse witness em outro corpo?
+- Onde aparecem valor, taxa e troco na confirmação da wallet e nos detalhes?
 
-Código principal no frontend:
+Falhas úteis para discussão:
 
-```ts
-walletClient.signTx(txCbor)
-Transaction.addVKeyWitnessesHex(txCbor, witnessSetCbor)
-```
+- endereço mainnet ou inválido;
+- valor zero;
+- saldo insuficiente;
+- wallet recusada;
+- backend desligado;
+- submissão aceita, mas ainda não indexada.
 
 ## 7. Exercício 2: pagamento com metadata
 
-Objetivo: mostrar um incremento pequeno em cima do pagamento simples.
-
-Diferença conceitual:
+A mudança em relação ao exercício 1 é pequena:
 
 ```ts
 const metadata = TransactionMetadatum.fromEntries([["msg", message]])
@@ -156,141 +133,100 @@ client
   .attachMetadata({ label: 674n, metadata })
 ```
 
-Fluxo:
+Perguntas:
 
-1. Preencher destinatário, lovelace e mensagem.
-2. Construir a tx com metadata.
-3. Comparar os details com o pagamento simples.
-4. Assinar, anexar witness e submeter.
-5. Conferir a metadata no explorador.
+- O que permaneceu igual no pipeline?
+- Onde a mensagem aparece no corpo e no explorador?
+- Por que não devemos publicar dados pessoais ou sigilosos?
+- A metadata prova que a mensagem é verdadeira ou apenas que foi publicada por uma transação?
 
-## 8. Exercício 3: native token CIP-25
+## 8. Exercício 3: multisig 2-de-2
 
-Objetivo: mostrar mint com policy nativa controlada pela wallet conectada.
+O exercício começa com o script e termina com um unlock incluído.
 
-A workbench recebe:
+### 8.1 Script e signers
 
-1. Recipient address que receberá o token.
-2. Asset name usado no token nativo.
-3. Quantidade.
-4. Metadata name exibido no CIP-25.
-5. Image URI.
-6. Description.
+- Signer A é a wallet conectada.
+- Signer B fornece outro endereço.
+- A API rejeita duas addresses apoiadas pela mesma payment key.
+- Os dois participantes conferem `requiredSigners` e `scriptAddress` antes do lock.
 
-A workbench mostra:
+### 8.2 Lock
 
-1. Policy id.
-2. Asset name em hex.
-3. Native script em CBOR e JSON.
-4. Metadata CIP-25 no label 721, com name, image e description.
-5. Required signer da wallet.
-6. Unsigned mint tx CBOR.
-7. Witness set.
-8. Signed tx.
-9. Tx hash.
+O lock move tADA para o script. A confirmação precisa deixar claro que uma configuração incorreta pode tornar o saldo inacessível.
 
-Ideia central:
+Depois da inclusão:
 
-```text
-backend constrói a policy e a mint tx
-wallet do usuário assina a autorização exigida pelo native script
+1. liste UTxOs do script;
+2. aguarde e tente novamente se o Blockfrost ainda não tiver indexado o lock;
+3. escolha explicitamente o outRef quando houver mais de um.
+
+### 8.3 Handoff e unlock
+
+O unsigned CBOR é o objeto compartilhado:
+
+1. Signer A constrói e assina.
+2. Signer A envia o unsigned CBOR ao signer B.
+3. Signer B cola o CBOR em outra Workbench, confere o resumo derivado do próprio CBOR, conecta a própria wallet, confirma a revisão e assina.
+4. Signer B devolve somente o witness.
+5. Signer A cola o witness recebido.
+6. A Workbench verifica as assinaturas, os hashes exigidos e o corpo assinado.
+7. Signer A revisa e submete.
+
+Alternativa de apoio:
+
+```bash
+npm run start -- sign-cbor <unsigned_tx_cbor>
 ```
 
-A metadata usa CIP-25 version 2. No label 721, a chave do policy id e a chave do asset name são byte strings, e o mapa inclui `version: 2`. `image` e `description` são quebrados em arrays quando passam de 64 bytes. `name` deve caber em 64 bytes.
+O unlock envia o valor escolhido ao destino e devolve o troco ao script. A rodada termina somente após inclusão do unlock, mas isso não recupera automaticamente todo o saldo bloqueado. Para mover mais tADA, reinicie somente o unlock, liste o novo UTxO do script e repita com as duas wallets.
 
-## 9. Exercício 4: multisig 2-de-2
+## 9. Exercício 4: Native Asset com CIP-25
 
-Objetivo: usar a página como bancada para transportar artefatos entre signatários.
+A Workbench mostra:
 
-### 4.0. Preparar script address
+- policy id;
+- asset name em hex;
+- native script em CBOR e JSON;
+- required signer;
+- metadata no label 721, version 2;
+- validade aproximada de três horas;
+- output com ao menos 5 tADA;
+- unsigned, witness, signed CBOR e transaction hash.
 
-1. Conectar a wallet do signer A.
-2. Informar o address do signer B.
-3. Clicar em `0. Gerar script address`.
-4. Observar:
-   - native script JSON;
-   - native script CBOR;
-   - script address;
-   - script hash;
-   - required signers.
+Perguntas:
 
-### 4A. Lock ADA no script
+- Qual regra autoriza o mint?
+- O que acontece se a policy expirar antes da submissão?
+- Qual é a diferença entre o asset e a metadata que o descreve?
+- Por que `name`, `image` e `description` possuem limites ou chunking?
 
-1. Informar valor para lock.
-2. Construir lock tx.
-3. Assinar com a wallet atual.
-4. Anexar witness.
-5. Submeter.
-6. Guardar o tx hash do lock.
+Se a validade expirar, o participante deve reconstruir. Não reutilize o CBOR antigo.
 
-### 4B. Unlock com duas assinaturas
+## 10. Recuperação e estado
 
-1. Signer A clica em `Listar UTxOs do script`.
-2. Signer A escolhe o outRef correto, no formato `txhash#index`.
-3. Signer A cola esse outRef em `Script UTxO para unlock`.
-4. Signer A constrói a unlock tx.
-5. A workbench mostra o unsigned unlock tx CBOR e o UTxO selecionado.
-6. Signer A assina e copia o próprio witness.
-7. Signer A envia o unsigned tx CBOR para o signer B.
-8. Signer B cola o unsigned tx CBOR no campo `Unsigned unlock tx CBOR` da própria workbench.
-9. Signer B assina o CBOR colado com a wallet dele e devolve o witness.
-10. Alternativa para o Signer B: rodar `npm run start -- sign-cbor <unsigned_tx_cbor>` com a `.seedphrase` local e devolver o witness impresso.
-11. Signer A cola o witness recebido.
-12. Signer A anexa os dois witnesses.
-13. Signer A submete a signed tx.
+A Workbench mantém o último checkpoint válido quando uma ação falha. Alterar um input remove os artefatos derivados para impedir submissão de uma transação antiga.
 
-Regra didática: o unsigned tx é o objeto compartilhado. Cada signer produz apenas o seu witness. O UTxO do script deve ser escolhido explicitamente quando houver mais de um, para não gastar a saída errada. O troco do unlock volta para o script address.
+Regras de facilitação:
 
-## 10. Arquivos importantes
+- retry repete apenas a etapa que falhou;
+- reset limpa somente o exercício local;
+- reset não desfaz uma transação já submetida;
+- restauração usa `sessionStorage`, exige reconectar a wallet e regenerar o setup multisig;
+- se a resposta da submissão se perder, o hash calculado localmente permanece em estado desconhecido para consulta antes de uma nova tentativa;
+- `404` na consulta ao Blockfrost significa apenas que o hash ainda não foi indexado; não prova rejeição;
+- signed CBOR, witnesses e endereços não contêm a chave privada, mas ainda são dados operacionais que devem ser descartados após a aula;
+- erros técnicos permanecem disponíveis em detalhes expansíveis.
 
-Backend API:
+## 11. Fechamento
 
-```text
-apps/api/src/server.ts
-apps/api/src/request-validation.ts
-```
+Peça aos participantes para descreverem um dos fluxos sem usar os nomes dos botões. A resposta deve separar:
 
-Frontend web:
+1. intenção e dados de entrada;
+2. construção do corpo;
+3. autorização pela chave;
+4. composição da transação assinada;
+5. submissão;
+6. inclusão e verificação do resultado.
 
-```text
-apps/web/index.html
-apps/web/src/main.ts
-apps/web/src/workbench-ui.ts
-apps/web/src/global.d.ts
-apps/web/src/css.d.ts
-apps/web/src/http.ts
-apps/web/src/styles.css
-```
-
-CLI de apoio:
-
-```text
-apps/cli/src/main.ts
-```
-
-Pacote Cardano:
-
-```text
-packages/cardano/src/workshop/01-payment.ts
-packages/cardano/src/workshop/02-metadata.ts
-packages/cardano/src/workshop/03-mint-cip25.ts
-packages/cardano/src/workshop/04-multisig.ts
-packages/cardano/src/workshop/types.ts
-packages/cardano/src/internal/blockfrost-client.ts
-packages/cardano/src/internal/serialization.ts
-packages/cardano/src/internal/addresses.ts
-packages/cardano/src/cli/seed-workflows.ts
-```
-
-## 11. Rotas da workbench
-
-```text
-POST /api/workshop/01-payment
-POST /api/workshop/02-metadata
-POST /api/workshop/03-mint-cip25
-POST /api/workshop/04-multisig/describe
-POST /api/workshop/04-multisig/lock
-POST /api/workshop/04-multisig/utxos
-POST /api/workshop/04-multisig/unlock
-POST /api/submit-tx
-```
+O fechamento deve preservar a fronteira principal: o backend pode construir e transmitir, enquanto a wallet mantém a custódia e decide se assina.

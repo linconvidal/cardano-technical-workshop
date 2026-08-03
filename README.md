@@ -2,17 +2,21 @@
 
 Workshop técnico em TypeScript para construir transações Cardano com backend Node.js e assinatura por wallet CIP-30 no frontend.
 
-A tese do projeto é separar a fronteira de custódia:
+A fronteira de custódia é explícita:
 
-- Backend Node.js constrói transações e submete via Blockfrost.
-- Frontend Vite conecta a wallet CIP-30 e assina sem expor a chave.
+- o backend Node.js consulta a Cardano Preprod, constrói transações e submete via Blockfrost;
+- a extensão CIP-30 assina no navegador sem expor a chave privada;
+- a Workbench valida e exibe unsigned CBOR, witnesses, signed CBOR, transaction hash e inclusão em bloco.
 
 ## Requisitos
 
-- Node.js 20 ou superior.
-- Projeto Blockfrost em Cardano preprod.
-- Wallet CIP-30 em preprod para os exercícios da workbench.
-- Mnemonic local apenas para os comandos CLI com seed.
+- Node.js 20 ou superior;
+- projeto Blockfrost em Cardano Preprod;
+- wallet CIP-30 configurada em Preprod;
+- tADA em pelo menos um UTxO da wallet usada para construir transações;
+- segunda wallet com outra chave de pagamento para o exercício multisig.
+
+O identificador de rede CIP-30 diferencia mainnet de testnet, mas não diferencia Preprod de Preview. A seleção de Preprod precisa ser conferida na extensão.
 
 ## Setup
 
@@ -21,44 +25,82 @@ npm install
 cp .env.example .env
 # edite .env e carregue as variáveis no shell atual
 set -a; source .env; set +a
-```
-
-Para o fluxo A, com chave no backend, crie `.seedphrase` localmente com a mnemonic usada nos exercícios, ou exporte `WALLET_MNEMONIC`. `.seedphrase`, `.env`, `dist/` e `node_modules/` são arquivos locais e não devem ser commitados.
-
-## Workbench web
-
-```bash
 npm run dev
 ```
 
-- Frontend: <http://localhost:5173> ou <http://127.0.0.1:5173>
-- Backend: <http://localhost:8787/api/health> ou <http://127.0.0.1:8787/api/health>
+Os serviços escutam apenas em `127.0.0.1` por padrão para não expor a credencial Blockfrost à rede local. Para outro bind, defina `HOST` no backend e passe um `--host` explícito ao Vite somente quando compreender o uso compartilhado da cota.
 
-A UI não é um app final. Ela é a bancada da aula: renderiza CBOR, witness sets, signed tx, policy scripts, script addresses e tx hashes.
+Acesse:
 
-Rotas principais:
+- Workbench: <http://127.0.0.1:5173>
+- backend: <http://127.0.0.1:8787/api/health>
+- prontidão: <http://127.0.0.1:8787/api/readiness>
+
+Para o fluxo CLI com chave no backend, crie `.seedphrase` localmente ou exporte `WALLET_MNEMONIC`. `.seedphrase`, `.env`, `dist/` e `node_modules/` são arquivos locais e não devem ser commitados.
+
+## Dinâmica participante-led
+
+A Workbench é o guia operacional autoritativo. Depois de uma introdução curta, o participante deve conseguir:
+
+1. verificar backend, Blockfrost, wallet, rede e saldo;
+2. entender objetivo, entradas, saída esperada e efeito de cada exercício;
+3. seguir somente a próxima ação habilitada;
+4. reconhecer build, assinatura, merge, submissão e inclusão;
+5. corrigir um erro e tentar novamente sem perder o último checkpoint válido;
+6. reiniciar apenas o exercício atual;
+7. restaurar campos e artefatos preservados na mesma aba.
+
+A sessão usa `sessionStorage`. Ela preserva endereços, CBOR e witnesses na aba atual, mas nunca armazena a chave privada ou o objeto CIP-30. Depois de recarregar a página, a wallet precisa ser conectada novamente. O script address e a lista de UTxOs do setup multisig não são persistidos; gere, confira e selecione esses dados novamente antes de um novo lock ou unlock.
+
+## Exercícios
+
+1. Pagamento simples.
+2. Pagamento com metadata no label 674.
+3. Multisig 2-de-2, com lock, seleção de UTxO, handoff de CBOR e unlock.
+4. Native Asset com policy nativa e metadata CIP-25.
+
+Cada pipeline mantém o mesmo contrato:
 
 ```text
+backend constrói unsigned tx
+wallet CIP-30 produz witness
+browser valida e anexa witness
+participante revisa o efeito
+backend submete signed tx
+Workbench verifica inclusão na Preprod
+```
+
+O hash é determinístico e pode ser calculado localmente antes da submissão. Uma resposta de sucesso do backend confirma que o Blockfrost aceitou a submissão. Se a resposta se perder, a Workbench preserva o hash como `resultado desconhecido`, permite consultar inclusão e só repete a submissão por ação explícita. Um `404` na consulta significa apenas que o Blockfrost ainda não indexa o hash; não confirma rejeição nem aceitação. O exercício só mostra conclusão quando o Blockfrost informa inclusão em um bloco. Essa inclusão não deve ser descrita como finalidade irreversível.
+
+## Efeitos na Preprod
+
+- Pagamento transfere tADA e paga taxa.
+- Metadata transfere tADA e publica conteúdo visível na blockchain.
+- Multisig lock move tADA para um script que exige duas chaves distintas. Uma configuração incorreta pode deixar o saldo inacessível.
+- Multisig unlock consome o UTxO escolhido, envia o valor definido ao destino e devolve o troco ao script. A inclusão conclui uma rodada, não a recuperação total do saldo. Para mover o restante, reinicie o unlock, liste o novo UTxO e repita com as duas wallets.
+- Mint cria unidades do asset, usa ao menos 5 tADA no output e possui policy com validade de aproximadamente três horas.
+
+Use wallets descartáveis e valores de testnet durante validação.
+
+## Rotas principais
+
+```text
+GET  /api/health
+GET  /api/readiness
+GET  /api/readiness?address=addr_test...
+GET  /api/transactions/:txHash/status
 POST /api/workshop/01-payment
 POST /api/workshop/02-metadata
-POST /api/workshop/03-mint-cip25
-POST /api/workshop/04-multisig/describe
-POST /api/workshop/04-multisig/lock
-POST /api/workshop/04-multisig/utxos
-POST /api/workshop/04-multisig/unlock
+POST /api/workshop/03-multisig/describe
+POST /api/workshop/03-multisig/lock
+POST /api/workshop/03-multisig/utxos
+POST /api/workshop/03-multisig/verify-input
+POST /api/workshop/03-multisig/unlock
+POST /api/workshop/04-mint-cip25
 POST /api/submit-tx
 ```
 
-Fluxo padrão:
-
-```text
-frontend conecta a wallet
-frontend envia address para backend
-backend constrói tx unsigned com withAddress(address)
-frontend assina com withCip30(api)
-frontend anexa witness set à tx
-backend submete via Blockfrost
-```
+As rotas anteriores `/api/workshop/03-mint-cip25` e `/api/workshop/04-multisig/*` permanecem como aliases de compatibilidade.
 
 ## CLI de apoio
 
@@ -70,21 +112,28 @@ npm run start -- build-cbor-metadata addr_test... 100000000 "Hello, Cardano!"
 npm run start -- multisig-info second_signer_addr_test...
 npm run start -- lock-multisig second_signer_addr_test... 10000000
 npm run start -- build-multisig-partial second_signer_addr_test... destination_addr_test... 2000000 txhash#index
-npm run start -- mint-cip25 recipient_addr_test... MyLittleToken 10 "My Little Token" ipfs://QmRhTTbUrPYEw3mJGGhQqQST9k86v1DPBiTTWJGKDJsVFw "This is a test token minted with a Cardano native script"
+npm run start -- mint-cip25 recipient_addr_test... MyLittleToken 10 "My Little Token" ipfs://... "Description"
 npm run start -- sign-cbor <unsigned_tx_cbor>
 ```
 
-## Notas dos exercícios
+O CLI `sign-cbor` pode produzir o segundo witness do unlock. O unsigned CBOR é o objeto compartilhado; cada signer devolve somente seu witness.
 
-- O exercício 3 usa CIP-25 version 2: policy id e asset name entram como byte strings no metadata 721, com `version: 2`.
-- `image` e `description` do CIP-25 são quebrados automaticamente em arrays quando passam de 64 bytes. `name` continua limitado a 64 bytes.
-- No exercício 4, o troco do unlock volta para o script address. Só o valor escolhido sai para o destino.
-- O witness recebido no unlock multisig vem do outro signer. Ele pode assinar o mesmo unsigned CBOR pela workbench ou pelo comando `npm run start -- sign-cbor <unsigned_tx_cbor>`.
-- `build-multisig-partial` é um comando de apoio para construir uma unlock tx e já incluir o witness da seed local. Na workbench, o fluxo didático recomendado é construir o unsigned CBOR na UI e usar `sign-cbor` para o outro signer.
+## Validação
 
-## Roteiro
+```bash
+npm test
+npm run build
+# com npm run dev ativo em outro terminal
+npm run test:browser
+```
 
-O roteiro incremental do workshop está em [`passoapasso.md`](passoapasso.md).
+Os testes cobrem validação de requests, rede e valores, signers multisig distintos, inspeção de CBOR importado, prontidão Blockfrost, consulta de inclusão, submissão ambígua, hash divergente, resumos derivados da transação, validade do mint, erros HTTP, progressão do pipeline, invalidação de artefatos, retry e restauração de sessão.
+
+Os cenários comportamentais estão em [`features/participant-led-workbench.feature`](features/participant-led-workbench.feature).
+
+## Roteiro de facilitação
+
+[`passoapasso.md`](passoapasso.md) contém o modelo mental, perguntas de discussão e notas para o facilitador. Ele não duplica a sequência de botões da interface.
 
 ## Licença
 

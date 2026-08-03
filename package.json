@@ -7,8 +7,10 @@
     "start": "tsx apps/cli/src/main.ts",
     "address": "tsx apps/cli/src/main.ts address",
     "server": "tsx apps/api/src/server.ts",
-    "web": "vite --host 0.0.0.0 --port 5173",
+    "web": "vite --host 127.0.0.1 --port 5173",
     "dev": "concurrently -k -n backend,web \"npm run server\" \"npm run web\"",
+    "test": "tsx --test apps/api/src/*.test.ts apps/web/src/*.test.ts packages/cardano/src/internal/*.test.ts packages/cardano/src/workshop/*.test.ts",
+    "test:browser": "node scripts/browser-smoke.mjs",
     "build": "tsc --noEmit && vite build"
   },
   "repository": {

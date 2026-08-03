@@ -3,6 +3,7 @@ import { Address, Assets, Client, KeyHash, NativeScripts, ScriptHash, Transactio
 import { expectKeyHash } from "../internal/addresses.js"
 import { BLOCKFROST_PREPROD_URL, loadBlockfrostProjectId } from "../internal/blockfrost-client.js"
 import { bytesToHex } from "../internal/serialization.js"
+import { summarizeTransaction } from "./transaction-summary.js"
 import type { MultisigDetails, MultisigLockParams, MultisigParams, MultisigUnlockParams, TxBuildResult } from "./types.js"
 
 export const describeMultisig = (params: MultisigParams): MultisigDetails => {
@@ -35,6 +36,21 @@ export const listMultisigScriptUtxos = async (params: MultisigParams) => {
   }
 }
 
+export const verifyMultisigScriptUtxo = async (scriptAddress: string, outRef: string) => {
+  const provider = Client.make(preprod).withBlockfrost({
+    baseUrl: BLOCKFROST_PREPROD_URL,
+    projectId: loadBlockfrostProjectId(),
+  })
+  const scriptUtxos = await provider.getUtxos(Address.fromBech32(scriptAddress))
+  const selected = scriptUtxos.find((utxo) => UTxO.toOutRefString(utxo) === outRef)
+  if (!selected) throw new Error(`Script UTxO ${outRef} not found at script address ${scriptAddress}`)
+  return {
+    verified: true,
+    scriptAddress,
+    ...summarizeScriptUtxo(selected),
+  }
+}
+
 export const buildMultisigLockTx = async (params: MultisigLockParams): Promise<TxBuildResult> => {
   const details = describeMultisig(params)
   const result = await Client.make(preprod)
@@ -58,6 +74,7 @@ export const buildMultisigLockTx = async (params: MultisigLockParams): Promise<T
       kind: "multisig-lock",
       lovelace: params.lovelace.toString(),
       ...details,
+      transaction: summarizeTransaction(transaction),
     },
   }
 }
@@ -100,6 +117,7 @@ export const buildMultisigUnlockTx = async (params: MultisigUnlockParams): Promi
       lovelace: params.lovelace.toString(),
       selectedScriptUtxo: UTxO.toOutRefString(selectedScriptUtxo),
       ...details,
+      transaction: summarizeTransaction(transaction),
     },
   }
 }
@@ -110,6 +128,11 @@ export const twoSignerScript = (
 ): NativeScripts.NativeScript => {
   const firstKeyHash = paymentKeyHashFromAddress(firstSignerAddress, "first signer")
   const secondKeyHash = paymentKeyHashFromAddress(secondSignerAddress, "second signer")
+
+  if (KeyHash.toHex(firstKeyHash) === KeyHash.toHex(secondKeyHash)) {
+    throw new Error("Multisig 2-de-2 requires two distinct payment keys")
+  }
+
   const firstScript = NativeScripts.makeScriptPubKey(KeyHash.toBytes(firstKeyHash))
   const secondScript = NativeScripts.makeScriptPubKey(KeyHash.toBytes(secondKeyHash))
 

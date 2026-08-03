@@ -1,4 +1,5 @@
-type Cip30WalletApi = {
+export type Cip30WalletApi = {
+  getNetworkId(): Promise<number>
   getUsedAddresses(): Promise<ReadonlyArray<string>>
   getUnusedAddresses(): Promise<ReadonlyArray<string>>
   getRewardAddresses(): Promise<ReadonlyArray<string>>
