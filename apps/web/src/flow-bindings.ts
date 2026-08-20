@@ -36,7 +36,7 @@ export const bindFlowView = (
 
   for (const selector of config.inputSelectors) {
     const element = document.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(selector)
-    if (!element) throw new Error(`Input do fluxo não encontrado: ${selector}`)
+    if (!element) throw new Error(`flow_input_not_found: ${selector}`)
     element.addEventListener("input", handlers.inputMutation)
     element.addEventListener("change", handlers.inputMutation)
   }

@@ -1,5 +1,7 @@
 # cardano-technical-workshop
 
+[English version](README.en.md)
+
 Workshop técnico em TypeScript para construir transações Cardano com backend Node.js e assinatura por wallet CIP-30 no frontend.
 
 A fronteira de custódia é explícita:
@@ -54,6 +56,14 @@ A Workbench é o guia operacional autoritativo. Depois de uma introdução curta
 7. restaurar campos e artefatos preservados na mesma aba.
 
 A sessão usa `sessionStorage`. Ela preserva endereços, CBOR e witnesses na aba atual, mas nunca armazena a chave privada ou o objeto CIP-30. Depois de recarregar a página, a wallet precisa ser conectada novamente. O script address e a lista de UTxOs do setup multisig não são persistidos; gere, confira e selecione esses dados novamente antes de um novo lock ou unlock.
+
+## Idioma
+
+O seletor `Idioma` da própria Workbench alterna entre português do Brasil e inglês sem recarregar a página. Português do Brasil (`pt-BR`) é o padrão, independentemente do idioma do navegador. A preferência explícita fica separada no `localStorage`, na chave `cardano-technical-workshop.locale.v1`, enquanto inputs, progresso e artefatos das transações permanecem no `sessionStorage`, na chave `cardano-technical-workshop.session.v1`.
+
+A troca atualiza textos visíveis, nomes acessíveis, anúncios, formatação dependente de locale, `html.lang` e o header `Accept-Language` das requisições seguintes à API. A Workbench envia o locale selecionado, `pt-BR` ou `en`. O backend usa esse header para localizar a nota de prontidão e problemas estruturados, responde com `Content-Language` e inclui `Accept-Language` em `Vary`. Um header ausente ou sem locale compatível usa `pt-BR`.
+
+A troca não reconstrói, assina, combina, submete, reinicia nem altera o estado das transações, o estado da sessão, os inputs, os artefatos ou a autorização da wallet. Um reload restaura separadamente a preferência de idioma e a sessão preservada, mas a wallet CIP-30 continua desconectada até uma nova autorização do participante.
 
 ## Exercícios
 
@@ -137,13 +147,13 @@ npm run build
 npm run test:browser
 ```
 
-Os testes cobrem validação de requests, schema raw da emissão EAC, policy EAC estável, rede e valores, signers multisig distintos, inspeção de CBOR importado, prontidão Blockfrost, consulta de inclusão, submissão ambígua, hash divergente, resumos derivados da transação, validade dos mints, erros HTTP, progressão do pipeline, invalidação de artefatos, retry, restauração de sessão e alinhamento visual dos inputs.
+Os testes cobrem validação de requests, schema raw da emissão EAC, policy EAC estável, rede e valores, signers multisig distintos, inspeção de CBOR importado, prontidão Blockfrost, consulta de inclusão, submissão ambígua, hash divergente, resumos derivados da transação, validade dos mints, erros HTTP, progressão do pipeline, invalidação de artefatos, retry, restauração de sessão, localização e alinhamento visual dos inputs.
 
-Os cenários comportamentais estão em [`features/participant-led-workbench.feature`](features/participant-led-workbench.feature).
+Os cenários comportamentais estão em [`features/participant-led-workbench.feature`](features/participant-led-workbench.feature), com uma versão correspondente em inglês em [`features/participant-led-workbench.en.feature`](features/participant-led-workbench.en.feature).
 
 ## Roteiro de facilitação
 
-[`passoapasso.md`](passoapasso.md) contém o modelo mental, perguntas de discussão e notas para o facilitador. Ele não duplica a sequência de botões da interface.
+[`passoapasso.md`](passoapasso.md) contém o modelo mental, perguntas de discussão e notas para o facilitador. Ele não duplica a sequência de botões da interface. A [versão em inglês](passoapasso.en.md) também está disponível.
 
 ## Licença
 

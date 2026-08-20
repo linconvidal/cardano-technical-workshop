@@ -12,6 +12,7 @@ const chrome = spawn(chromeBinary, [
   "--headless",
   "--disable-gpu",
   "--hide-scrollbars",
+  "--lang=en-US",
   `--remote-debugging-port=${debugPort}`,
   `--user-data-dir=${profileDirectory}`,
   "--window-size=1280,900",
@@ -24,13 +25,36 @@ chrome.stderr.on("data", (chunk) => { stderr += chunk.toString() })
 try {
   const target = await waitForPage(debugPort, appUrl)
   const cdp = await connectCdp(target.webSocketDebuggerUrl)
+  const observedApiRequests = []
+  cdp.on("Network.requestWillBeSent", ({ request }) => {
+    if (!request?.url?.includes("/api/")) return
+    const acceptLanguage = Object.entries(request.headers ?? {})
+      .find(([name]) => name.toLowerCase() === "accept-language")?.[1]
+    observedApiRequests.push({ url: request.url, acceptLanguage })
+  })
   await cdp.send("Runtime.enable")
   await cdp.send("Page.enable")
+  await cdp.send("Network.enable")
   await cdp.send("Accessibility.enable")
   await waitForWorkbench(cdp)
 
   const desktop = await evaluate(cdp, `(() => ({
     title: document.title,
+    htmlLang: document.documentElement.lang,
+    navigatorLanguage: navigator.language,
+    selector: (() => {
+      const select = document.querySelector('#languageSelector')
+      const label = document.querySelector('label[for="languageSelector"]')
+      return {
+        value: select?.value,
+        visible: Boolean(select?.offsetParent),
+        ariaLabel: select?.getAttribute('aria-label'),
+        label: label?.textContent?.trim(),
+      }
+    })(),
+    localePreference: localStorage.getItem('cardano-technical-workshop.locale.v1'),
+    heroTitle: document.querySelector('[data-i18n="hero.title"]')?.textContent?.trim(),
+    readinessMessage: document.querySelector('#readinessMessage')?.textContent?.trim(),
     backend: document.querySelector('#backendReadiness')?.dataset.status,
     provider: document.querySelector('#providerReadiness')?.dataset.status,
     paymentBuildDisabled: document.querySelector('#paymentBuild')?.disabled,
@@ -66,6 +90,12 @@ try {
   }))()`)
 
   assert.equal(desktop.title, "Cardano Technical Workshop")
+  assert.match(desktop.navigatorLanguage, /^en/i)
+  assert.equal(desktop.htmlLang, "pt-BR")
+  assert.deepEqual(desktop.selector, { value: "pt-BR", visible: true, ariaLabel: "Idioma", label: "Idioma" })
+  assert.equal(desktop.localePreference, null)
+  assert.equal(desktop.heroTitle, "Workbench de transações Cardano")
+  assert.equal(desktop.readinessMessage, "Configure BLOCKFROST_PROJECT_ID no backend e reinicie a Workbench.")
   assert.equal(desktop.backend, "ready")
   assert.equal(desktop.provider, "error")
   assert.equal(desktop.paymentBuildDisabled, true)
@@ -92,15 +122,69 @@ try {
   })
   assert.equal(desktop.multisigSetupAcknowledgement, true)
 
-  const logAttention = await evaluate(cdp, `(async () => {
+  const beforeLanguageSwitch = await evaluate(cdp, `(() => {
     const recipient = document.querySelector('#paymentRecipient')
     recipient.value = 'addr_test1smoke'
     recipient.dispatchEvent(new Event('input', { bubbles: true }))
+    window.__localeSmokeMarker = 'survived'
+    return {
+      input: recipient.value,
+      progress: [...document.querySelectorAll('#paymentPanel [data-progress-step]')].map((node) => node.dataset.status),
+      artifacts: [...document.querySelectorAll('#paymentPanel .artifact textarea')].map((node) => node.value),
+      session: sessionStorage.getItem('cardano-technical-workshop.session.v1'),
+    }
+  })()`)
+  assert.ok(beforeLanguageSwitch.session)
+
+  const english = await evaluate(cdp, `(async () => {
+    const selector = document.querySelector('#languageSelector')
+    selector.value = 'en'
+    selector.dispatchEvent(new Event('change', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    return {
+      marker: window.__localeSmokeMarker,
+      htmlLang: document.documentElement.lang,
+      selectorValue: selector.value,
+      selectorLabel: document.querySelector('label[for="languageSelector"]')?.textContent?.trim(),
+      selectorAriaLabel: selector.getAttribute('aria-label'),
+      localePreference: localStorage.getItem('cardano-technical-workshop.locale.v1'),
+      heroTitle: document.querySelector('[data-i18n="hero.title"]')?.textContent?.trim(),
+      readinessMessage: document.querySelector('#readinessMessage')?.textContent?.trim(),
+      activeStep: document.querySelector('#paymentPanel [data-progress-step][data-status="current"]')?.textContent?.trim(),
+      technicalLogLabel: document.querySelector('#technicalLogButton')?.getAttribute('aria-label'),
+      walletStatus: document.querySelector('#connectedAddress')?.textContent?.trim(),
+      announcement: document.querySelector('[data-i18n-language-announcer]')?.textContent,
+      input: document.querySelector('#paymentRecipient')?.value,
+      progress: [...document.querySelectorAll('#paymentPanel [data-progress-step]')].map((node) => node.dataset.status),
+      artifacts: [...document.querySelectorAll('#paymentPanel .artifact textarea')].map((node) => node.value),
+      session: sessionStorage.getItem('cardano-technical-workshop.session.v1'),
+    }
+  })()`)
+  assert.equal(english.marker, "survived")
+  assert.equal(english.htmlLang, "en")
+  assert.equal(english.selectorValue, "en")
+  assert.equal(english.selectorLabel, "Language")
+  assert.equal(english.selectorAriaLabel, "Language")
+  assert.equal(english.localePreference, "en")
+  assert.equal(english.heroTitle, "Cardano transaction Workbench")
+  assert.equal(english.readinessMessage, "Configure BLOCKFROST_PROJECT_ID in the backend and restart the Workbench.")
+  assert.match(english.activeStep, /Build/)
+  assert.equal(english.technicalLogLabel, "Open technical log")
+  assert.equal(english.walletStatus, "No wallet connected.")
+  assert.equal(english.announcement, "Language changed to English.")
+  assert.equal(english.input, beforeLanguageSwitch.input)
+  assert.deepEqual(english.progress, beforeLanguageSwitch.progress)
+  assert.deepEqual(english.artifacts, beforeLanguageSwitch.artifacts)
+  assert.equal(english.session, beforeLanguageSwitch.session)
+
+  const logAttention = await evaluate(cdp, `(async () => {
     const build = document.querySelector('#paymentBuild')
     build.disabled = false
     build.click()
-    await new Promise((resolve) => setTimeout(resolve, 50))
     const badge = document.querySelector('#technicalLogBadge')
+    for (let attempt = 0; attempt < 50 && badge.hidden; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
     const button = document.querySelector('#technicalLogButton')
     return {
       badgeHidden: badge.hidden,
@@ -109,12 +193,10 @@ try {
       hasErrors: button.dataset.hasErrors,
     }
   })()`)
-  assert.deepEqual(logAttention, {
-    badgeHidden: false,
-    badgeText: "1",
-    buttonLabel: "Abrir log técnico, 1 erro não lido",
-    hasErrors: "true",
-  })
+  assert.equal(logAttention.badgeHidden, false)
+  assert.equal(logAttention.badgeText, "1")
+  assert.equal(logAttention.buttonLabel, "Open technical log, 1 unread error")
+  assert.equal(logAttention.hasErrors, "true")
 
   const openedLog = await evaluate(cdp, `(() => {
     document.querySelector('#technicalLogButton').click()
@@ -132,71 +214,103 @@ try {
   assert.equal(openedLog.activeElement, "technicalLogClose")
   assert.equal(openedLog.badgeHidden, true)
   assert.equal(openedLog.hasErrorEntry, true)
-  assert.match(openedLog.logText, /Pagamento simples/)
+  assert.match(openedLog.logText, /Flow payment: the step failed\./)
 
   const closedLog = await evaluate(cdp, `(async () => {
     const dialog = document.querySelector('#technicalLogDialog')
     const closed = new Promise((resolve) => dialog.addEventListener('close', resolve, { once: true }))
     document.querySelector('#technicalLogClose').click()
     await closed
-    return {
-      open: dialog.open,
-      activeElement: document.activeElement?.id,
-    }
+    return { open: dialog.open, activeElement: document.activeElement?.id }
   })()`)
   assert.deepEqual(closedLog, { open: false, activeElement: "technicalLogButton" })
 
-  const accessibility = await cdp.send("Accessibility.getFullAXTree")
-  const unnamedControls = accessibility.nodes.filter((node) =>
-    !node.ignored &&
-    ["button", "textbox", "combobox"].includes(node.role?.value) &&
-    !node.name?.value,
-  )
-  assert.deepEqual(unnamedControls, [])
+  const englishLayouts = []
+  for (const viewport of [
+    { width: 1280, height: 900, mobile: false },
+    { width: 390, height: 844, mobile: true },
+    { width: 320, height: 720, mobile: true },
+  ]) englishLayouts.push(await checkViewport(cdp, viewport))
 
-  await cdp.send("Emulation.setDeviceMetricsOverride", {
-    width: 390,
-    height: 844,
-    deviceScaleFactor: 1,
-    mobile: true,
-  })
-  await evaluate(cdp, "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
-  const mobile = await evaluate(cdp, `(() => {
-    const nav = document.querySelector('.exercise-nav')
+  await cdp.send("Page.reload", { ignoreCache: true })
+  await waitForReload(cdp)
+  await waitForWorkbench(cdp)
+  const reloaded = await evaluate(cdp, `(() => ({
+    marker: window.__localeSmokeMarker,
+    htmlLang: document.documentElement.lang,
+    selectorValue: document.querySelector('#languageSelector')?.value,
+    selectorLabel: document.querySelector('#languageSelector')?.getAttribute('aria-label'),
+    localePreference: localStorage.getItem('cardano-technical-workshop.locale.v1'),
+    sessionPresent: Boolean(sessionStorage.getItem('cardano-technical-workshop.session.v1')),
+    resumeVisible: Boolean(document.querySelector('#resumeBanner')?.offsetParent),
+    resumeText: document.querySelector('#resumeBanner strong')?.textContent?.trim(),
+    walletStatus: document.querySelector('#connectedAddress')?.textContent?.trim(),
+  }))()`)
+  assert.equal(reloaded.marker, undefined)
+  assert.equal(reloaded.htmlLang, "en")
+  assert.equal(reloaded.selectorValue, "en")
+  assert.equal(reloaded.selectorLabel, "Language")
+  assert.equal(reloaded.localePreference, "en")
+  assert.equal(reloaded.sessionPresent, true)
+  assert.equal(reloaded.resumeVisible, true)
+  assert.equal(reloaded.resumeText, "A session from this tab can be continued.")
+  assert.equal(reloaded.walletStatus, "No wallet connected.")
+  reloaded.apiRequest = lastApiRequest(observedApiRequests, "en")
+  assert.equal(reloaded.apiRequest?.acceptLanguage, "en")
+
+  const restoredInput = await evaluate(cdp, `(() => {
+    document.querySelector('#resumeSession').click()
+    return document.querySelector('#paymentRecipient')?.value
+  })()`)
+  assert.equal(restoredInput, "addr_test1smoke")
+
+  const portuguese = await evaluate(cdp, `(async () => {
+    const sessionBefore = sessionStorage.getItem('cardano-technical-workshop.session.v1')
+    const selector = document.querySelector('#languageSelector')
+    window.__localeSmokeMarker = 'portuguese-no-reload'
+    selector.value = 'pt-BR'
+    selector.dispatchEvent(new Event('change', { bubbles: true }))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const sessionUnchanged = sessionStorage.getItem('cardano-technical-workshop.session.v1') === sessionBefore
     return {
-      clientWidth: document.documentElement.clientWidth,
-      scrollWidth: document.documentElement.scrollWidth,
-      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-      navVisible: Boolean(nav),
-      navHorizontalOverflow: nav ? nav.scrollWidth > nav.clientWidth : true,
-      navLinks: nav?.querySelectorAll('a').length ?? 0,
+      marker: window.__localeSmokeMarker,
+      htmlLang: document.documentElement.lang,
+      selectorValue: selector.value,
+      selectorLabel: selector.getAttribute('aria-label'),
+      localePreference: localStorage.getItem('cardano-technical-workshop.locale.v1'),
+      heroTitle: document.querySelector('[data-i18n="hero.title"]')?.textContent?.trim(),
+      announcement: document.querySelector('[data-i18n-language-announcer]')?.textContent,
+      sessionUnchanged,
     }
   })()`)
+  assert.equal(portuguese.marker, "portuguese-no-reload")
+  assert.equal(portuguese.htmlLang, "pt-BR")
+  assert.equal(portuguese.selectorValue, "pt-BR")
+  assert.equal(portuguese.selectorLabel, "Idioma")
+  assert.equal(portuguese.localePreference, "pt-BR")
+  assert.equal(portuguese.heroTitle, "Workbench de transações Cardano")
+  assert.equal(portuguese.announcement, "Idioma alterado para português do Brasil.")
+  assert.equal(portuguese.sessionUnchanged, true)
+
+  await cdp.send("Page.reload", { ignoreCache: true })
+  await waitForReload(cdp)
+  await waitForWorkbench(cdp)
+  portuguese.apiRequest = lastApiRequest(observedApiRequests, "pt-BR")
+  assert.equal(portuguese.apiRequest?.acceptLanguage, "pt-BR")
+
+  const portugueseLayouts = []
+  for (const viewport of [
+    { width: 1280, height: 900, mobile: false },
+    { width: 390, height: 844, mobile: true },
+    { width: 320, height: 720, mobile: true },
+  ]) portugueseLayouts.push(await checkViewport(cdp, viewport))
+
+  const mobile = portugueseLayouts[1]
   assert.equal(mobile.clientWidth, 390)
-  assert.equal(mobile.horizontalOverflow, false)
   assert.equal(mobile.navVisible, true)
-  assert.equal(mobile.navHorizontalOverflow, false)
   assert.equal(mobile.navLinks, 5)
-
-  await cdp.send("Emulation.setDeviceMetricsOverride", {
-    width: 320,
-    height: 720,
-    deviceScaleFactor: 1,
-    mobile: true,
-  })
-  await evaluate(cdp, "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
-  const narrowMobile = await evaluate(cdp, `(() => {
-    const nav = document.querySelector('.exercise-nav')
-    return {
-      clientWidth: document.documentElement.clientWidth,
-      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
-      navHorizontalOverflow: nav ? nav.scrollWidth > nav.clientWidth : true,
-      navLinks: nav?.querySelectorAll('a').length ?? 0,
-    }
-  })()`)
+  const narrowMobile = portugueseLayouts[2]
   assert.equal(narrowMobile.clientWidth, 320)
-  assert.equal(narrowMobile.horizontalOverflow, false)
-  assert.equal(narrowMobile.navHorizontalOverflow, false)
   assert.equal(narrowMobile.navLinks, 5)
 
   const narrowModal = await evaluate(cdp, `(async () => {
@@ -238,14 +352,17 @@ try {
 
   console.log(JSON.stringify({
     desktop,
+    beforeLanguageSwitch: { ...beforeLanguageSwitch, session: "[captured]" },
+    english: { ...english, session: "[captured]" },
     logAttention,
     openedLog: { ...openedLog, logText: "[captured]" },
     closedLog,
-    mobile,
-    narrowMobile,
+    englishLayouts,
+    reloaded,
+    portuguese,
+    portugueseLayouts,
     narrowModal,
     focused,
-    unnamedControls: unnamedControls.length,
   }, null, 2))
   cdp.close()
 } finally {
@@ -253,6 +370,46 @@ try {
   await waitForExit(chrome, 5_000)
   if (chrome.exitCode === null) chrome.kill("SIGKILL")
   spawnSync("gio", ["trash", profileDirectory])
+}
+
+function lastApiRequest(requests, locale) {
+  return [...requests].reverse().find((request) => request.acceptLanguage === locale)
+}
+
+async function checkViewport(cdp, { width, height, mobile }) {
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width,
+    height,
+    deviceScaleFactor: 1,
+    mobile,
+  })
+  await evaluate(cdp, "new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+  const layout = await evaluate(cdp, `(() => {
+    const nav = document.querySelector('.exercise-nav')
+    return {
+      locale: document.documentElement.lang,
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+      horizontalOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      navVisible: Boolean(nav?.offsetParent),
+      navHorizontalOverflow: nav ? nav.scrollWidth > nav.clientWidth : true,
+      navLinks: nav?.querySelectorAll('a').length ?? 0,
+    }
+  })()`)
+  assert.equal(layout.clientWidth, width)
+  assert.equal(layout.horizontalOverflow, false)
+  assert.equal(layout.navVisible, true)
+  assert.equal(layout.navHorizontalOverflow, false)
+  assert.equal(layout.navLinks, 5)
+
+  const accessibility = await cdp.send("Accessibility.getFullAXTree")
+  const unnamedControls = accessibility.nodes.filter((node) =>
+    !node.ignored &&
+    ["button", "textbox", "combobox"].includes(node.role?.value) &&
+    !node.name?.value,
+  )
+  assert.deepEqual(unnamedControls, [])
+  return { ...layout, unnamedControls: unnamedControls.length }
 }
 
 async function waitForPage(port, expectedUrl) {
@@ -270,8 +427,21 @@ async function waitForPage(port, expectedUrl) {
   throw new Error(`Chrome DevTools did not expose ${expectedUrl}. ${stderr}`)
 }
 
+async function waitForReload(cdp) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try {
+      const reloaded = await evaluate(cdp, "document.readyState === 'complete' && window.__localeSmokeMarker === undefined")
+      if (reloaded) return
+    } catch {
+      // The previous execution context is being replaced.
+    }
+    await delay(50)
+  }
+  throw new Error("Workbench did not reload")
+}
+
 async function waitForWorkbench(cdp) {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
     const ready = await evaluate(cdp, `document.readyState === 'complete' &&
       Boolean(document.querySelector('#backendReadiness')) &&
       document.querySelector('#backendReadiness').dataset.status !== 'checking'`)
@@ -284,6 +454,7 @@ async function waitForWorkbench(cdp) {
 async function connectCdp(webSocketUrl) {
   const socket = new WebSocket(webSocketUrl)
   const pending = new Map()
+  const listeners = new Map()
   let sequence = 0
 
   await new Promise((resolve, reject) => {
@@ -293,7 +464,10 @@ async function connectCdp(webSocketUrl) {
 
   socket.addEventListener("message", (event) => {
     const message = JSON.parse(event.data)
-    if (!message.id) return
+    if (!message.id) {
+      for (const listener of listeners.get(message.method) ?? []) listener(message.params ?? {})
+      return
+    }
     const request = pending.get(message.id)
     if (!request) return
     pending.delete(message.id)
@@ -308,6 +482,11 @@ async function connectCdp(webSocketUrl) {
         pending.set(id, { resolve, reject })
         socket.send(JSON.stringify({ id, method, params }))
       })
+    },
+    on(method, listener) {
+      const values = listeners.get(method) ?? []
+      values.push(listener)
+      listeners.set(method, values)
     },
     close() {
       socket.close()

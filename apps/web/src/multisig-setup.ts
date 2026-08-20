@@ -1,3 +1,9 @@
+import {
+  formatMessage,
+  messageRef,
+  type Locale,
+  type MessageRef,
+} from "../../../packages/localization/src/index.js"
 import { HttpError, postJson } from "./http.js"
 import { inputValue, renderJson, select, setVisible } from "./workbench-ui.js"
 import type { WorkbenchLogger } from "./technical-log.js"
@@ -19,6 +25,29 @@ type MultisigSetupConfig = {
   onInputChange: () => void
   onSetupChange: () => void
   log: WorkbenchLogger
+  locale: () => Locale
+}
+
+export type AlertContent = {
+  message: MessageRef
+  guidance: MessageRef
+  technicalDetail: string
+}
+
+export const multisigAlertContent = (error: unknown): AlertContent => {
+  if (error instanceof HttpError) {
+    return {
+      message: error.problem.messageRef ?? messageRef("multisig.error.generic"),
+      guidance: error.problem.guidanceRef ?? messageRef("multisig.guidance.generic"),
+      technicalDetail: error.problem.technicalDetail ?? "",
+    }
+  }
+
+  return {
+    message: messageRef("multisig.error.generic"),
+    guidance: messageRef("multisig.guidance.generic"),
+    technicalDetail: error instanceof Error ? error.message : String(error),
+  }
 }
 
 export class MultisigSetupController {
@@ -37,11 +66,15 @@ export class MultisigSetupController {
   private reviewedFingerprint?: string
   private listedFingerprint?: string
   private availableOutRefs = new Set<string>()
+  private statusRef: MessageRef = messageRef("multisig.status.initial")
+  private alertContent?: AlertContent
+  private currentUtxos: ReadonlyArray<ScriptUtxo> = []
 
   constructor(private readonly config: MultisigSetupConfig) {
     this.describeButton.addEventListener("click", () => { void this.describe() })
     this.listButton.addEventListener("click", () => { void this.listUtxos() })
     this.acknowledgement.addEventListener("change", () => this.config.onSetupChange())
+    this.renderLocalizedContent()
   }
 
   isBusy(): boolean {
@@ -63,7 +96,7 @@ export class MultisigSetupController {
       this.availableOutRefs.has(selectedOutRef)
   }
 
-  invalidate(reason: string) {
+  invalidate(reason: MessageRef) {
     this.generation += 1
     this.busy = false
     this.root.setAttribute("aria-busy", "false")
@@ -72,15 +105,18 @@ export class MultisigSetupController {
     this.reviewedFingerprint = undefined
     this.listedFingerprint = undefined
     this.availableOutRefs.clear()
+    this.currentUtxos = []
     this.details.value = ""
     this.utxos.value = ""
     this.clearSelectedOutRef()
     this.choicesContainer.replaceChildren()
     setVisible(this.choices, false)
+    this.alertContent = undefined
     setVisible(this.alert, false)
     this.acknowledgement.checked = false
     this.acknowledgement.disabled = true
-    this.status.textContent = reason
+    this.statusRef = reason
+    this.renderLocalizedContent()
     this.refreshReadiness()
     this.config.onSetupChange()
   }
@@ -91,11 +127,17 @@ export class MultisigSetupController {
     this.listButton.disabled = this.busy || !ready || this.reviewedFingerprint !== this.signerFingerprint()
   }
 
+  rerenderForLocale() {
+    this.renderLocalizedContent()
+    this.renderChoices(this.currentUtxos, false)
+  }
+
   private async describe() {
-    await this.run(this.describeButton, "Gerando o script 2-de-2...", async (generation) => {
+    await this.run(this.describeButton, messageRef("multisig.status.generating"), async (generation) => {
       this.clearSelectedOutRef()
       this.availableOutRefs.clear()
       this.listedFingerprint = undefined
+      this.currentUtxos = []
       this.utxos.value = ""
       this.choicesContainer.replaceChildren()
       setVisible(this.choices, false)
@@ -109,14 +151,14 @@ export class MultisigSetupController {
       this.reviewedFingerprint = this.signerFingerprint()
       this.acknowledgement.checked = false
       this.acknowledgement.disabled = false
-      this.status.textContent = "Script criado. Abra os detalhes e confira endereço e hashes antes de autorizar o lock."
-      this.config.log("Multisig: script 2-de-2 gerado com duas chaves distintas.")
+      this.setStatus(messageRef("multisig.status.generated"))
+      this.config.log(messageRef("multisig.log.generated"))
       this.config.onSetupChange()
     })
   }
 
   private async listUtxos() {
-    await this.run(this.listButton, "Consultando UTxOs do script na Preprod...", async (generation) => {
+    await this.run(this.listButton, messageRef("multisig.status.listing"), async (generation) => {
       const result = await postJson<ScriptUtxosResponse>(
         "/api/workshop/03-multisig/utxos",
         this.payload(),
@@ -124,24 +166,25 @@ export class MultisigSetupController {
       if (generation !== this.generation) return
 
       this.utxos.value = renderJson(result)
+      this.currentUtxos = result.scriptUtxos
       this.renderChoices(result.scriptUtxos)
 
       if (result.scriptUtxos.length === 0) {
-        this.status.textContent = "Nenhum UTxO indexado ainda. Se o lock foi incluído agora, aguarde alguns segundos e tente novamente."
+        this.setStatus(messageRef("multisig.status.none"))
         return
       }
       if (result.scriptUtxos.length === 1) {
         this.selectOutRef(result.scriptUtxos[0].outRef)
-        this.status.textContent = `UTxO único selecionado: ${result.scriptUtxos[0].outRef}`
+        this.setStatus(messageRef("multisig.status.one", { outRef: result.scriptUtxos[0].outRef }))
         return
       }
-      this.status.textContent = "Há vários UTxOs. Escolha explicitamente qual deles o unlock deve consumir."
+      this.setStatus(messageRef("multisig.status.many"))
     })
   }
 
   private payload() {
     const wallet = this.config.wallet()
-    if (!wallet) throw new Error("Conecte a wallet do signer A primeiro")
+    if (!wallet) throw new Error("wallet_required_for_multisig_setup")
     return {
       userAddress: wallet.address,
       secondSignerAddress: inputValue("#multisigSecondSigner"),
@@ -152,10 +195,11 @@ export class MultisigSetupController {
     return `${this.config.wallet()?.address ?? ""}|${inputValue("#multisigSecondSigner")}`
   }
 
-  private renderChoices(scriptUtxos: ReadonlyArray<ScriptUtxo>) {
-    this.clearSelectedOutRef()
+  private renderChoices(scriptUtxos: ReadonlyArray<ScriptUtxo>, resetSelection = true) {
+    const selected = select<HTMLInputElement>("#multisigScriptUtxo").value
+    if (resetSelection) this.clearSelectedOutRef()
     this.availableOutRefs = new Set(scriptUtxos.map((utxo) => utxo.outRef))
-    this.listedFingerprint = this.signerFingerprint()
+    if (resetSelection) this.listedFingerprint = this.signerFingerprint()
     this.choicesContainer.replaceChildren()
     setVisible(this.choices, scriptUtxos.length > 0)
 
@@ -166,8 +210,12 @@ export class MultisigSetupController {
       radio.type = "radio"
       radio.name = "multisigUtxoChoice"
       radio.value = utxo.outRef
+      radio.checked = !resetSelection && selected === utxo.outRef
       radio.addEventListener("change", () => this.selectOutRef(utxo.outRef))
-      text.textContent = `${utxo.outRef} | ${utxo.lovelace} lovelace`
+      text.textContent = formatMessage(messageRef("multisig.choice.label", {
+        outRef: utxo.outRef,
+        lovelace: utxo.lovelace,
+      }), this.config.locale())
       label.append(radio, text)
       this.choicesContainer.append(label)
     }
@@ -190,12 +238,12 @@ export class MultisigSetupController {
 
   private async run(
     button: HTMLButtonElement,
-    pendingText: string,
+    pending: MessageRef,
     action: (generation: number) => Promise<void>,
   ) {
     const otherBusyOperation = document.querySelector<HTMLElement>('[data-stage][aria-busy="true"]')
     if (otherBusyOperation && otherBusyOperation !== this.root) {
-      this.status.textContent = "Aguarde a etapa em andamento antes de iniciar o setup multisig."
+      this.setStatus(messageRef("multisig.status.waitCurrent"))
       return
     }
 
@@ -204,7 +252,8 @@ export class MultisigSetupController {
     this.root.setAttribute("aria-busy", "true")
     this.refreshReadiness()
     button.setAttribute("aria-busy", "true")
-    this.status.textContent = pendingText
+    this.setStatus(pending)
+    this.alertContent = undefined
     setVisible(this.alert, false)
     this.config.onSetupChange()
 
@@ -212,17 +261,16 @@ export class MultisigSetupController {
       await action(generation)
     } catch (error) {
       if (generation !== this.generation) return
-      const message = error instanceof HttpError ? error.problem.message : "Não foi possível concluir a etapa multisig"
-      const guidance = error instanceof HttpError
-        ? error.problem.guidance
-        : "Confira as duas wallets, a rede Preprod e os endereços. Depois, tente novamente."
-      this.alert.querySelector("strong")!.textContent = message
-      this.alert.querySelector("p")!.textContent = guidance ?? "Tente novamente."
-      this.alert.querySelector("pre")!.textContent = error instanceof Error ? error.message : String(error)
+      this.alertContent = multisigAlertContent(error)
+      this.renderAlert()
       setVisible(this.alert, true)
       this.alert.focus()
-      this.status.textContent = "Corrija o problema indicado e repita esta etapa."
-      this.config.log(`Multisig: ${message}`, "error")
+      this.setStatus(messageRef("multisig.status.recover"))
+      this.config.log(
+        this.alertContent.message,
+        "error",
+        this.alertContent.technicalDetail || undefined,
+      )
     } finally {
       if (generation !== this.generation) return
       this.busy = false
@@ -231,5 +279,23 @@ export class MultisigSetupController {
       this.refreshReadiness()
       this.config.onSetupChange()
     }
+  }
+
+  private setStatus(reference: MessageRef) {
+    this.statusRef = reference
+    this.status.textContent = formatMessage(reference, this.config.locale())
+  }
+
+  private renderLocalizedContent() {
+    this.status.textContent = formatMessage(this.statusRef, this.config.locale())
+    this.renderAlert()
+  }
+
+  private renderAlert() {
+    if (!this.alertContent) return
+    const locale = this.config.locale()
+    this.alert.querySelector("strong")!.textContent = formatMessage(this.alertContent.message, locale)
+    this.alert.querySelector("p")!.textContent = formatMessage(this.alertContent.guidance, locale)
+    this.alert.querySelector("pre")!.textContent = this.alertContent.technicalDetail
   }
 }

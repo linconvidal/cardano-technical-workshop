@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
+import { formatMessage, type Locale, type MessageRef } from "../../../packages/localization/src/index.js"
+
 import {
   eacMintReview,
   eacRetireReview,
@@ -10,6 +12,7 @@ import {
 } from "./review-summary.js"
 
 const recipient = "addr_test1actualrecipient"
+const render = (reference: MessageRef, locale: Locale = "pt-BR") => formatMessage(reference, locale)
 
 test("payment and metadata reviews prefer effects decoded from transaction data", () => {
   const transaction = {
@@ -19,8 +22,8 @@ test("payment and metadata reviews prefer effects decoded from transaction data"
     auxiliaryData: { "674": { msg: "actual message" } },
   }
 
-  assert.match(paymentReview({ recipientAddress: recipient, lovelace: "999", transaction }), /2222222/)
-  const review = metadataReview({ recipientAddress: recipient, message: "declared only", transaction })
+  assert.match(render(paymentReview({ recipientAddress: recipient, lovelace: "999", transaction }, "pt-BR")), /2222222/)
+  const review = render(metadataReview({ recipientAddress: recipient, message: "declared only", transaction }, "pt-BR"))
   assert.match(review, /actual message/)
   assert.doesNotMatch(review, /declared only/)
 })
@@ -28,7 +31,7 @@ test("payment and metadata reviews prefer effects decoded from transaction data"
 test("EAC review derives quantity, display amount, and raw metadata from transaction data", () => {
   const policy = "b".repeat(56)
   const asset = "4541432d4252452d32303235503031"
-  const review = eacMintReview({
+  const review = render(eacMintReview({
     policyId: policy,
     assetNameHex: asset,
     tokenName: "EAC-BRE-2025P01",
@@ -54,7 +57,7 @@ test("EAC review derives quantity, display amount, and raw metadata from transac
         },
       },
     },
-  })
+  }, "pt-BR"))
 
   assert.match(review, /12088322 unidades/)
   assert.match(review, /12\.088,322 EAC/)
@@ -65,7 +68,7 @@ test("EAC review derives quantity, display amount, and raw metadata from transac
 test("EAC retirement review derives burn and remaining balance from transaction data", () => {
   const policy = "b".repeat(56)
   const asset = "4541432d4252452d32303235503031"
-  const review = eacRetireReview({
+  const review = render(eacRetireReview({
     policyId: policy,
     assetNameHex: asset,
     tokenName: "EAC-BRE-2025P01",
@@ -88,7 +91,7 @@ test("EAC retirement review derives burn and remaining balance from transaction 
         },
       },
     },
-  })
+  }, "pt-BR"))
   assert.match(review, /burn de -125000/)
   assert.match(review, /125,000 EAC/)
   assert.match(review, /11\.963,322 EAC/)
@@ -109,14 +112,40 @@ test("mint review reads quantity and recipient allocation from transaction data"
     }],
   }
 
-  const review = mintReview({
+  const review = render(mintReview({
     policyId: policy,
     assetNameHex: asset,
     tokenName: "MyToken",
     amount: "999",
     recipientAddress: recipient,
     transaction: { ...transaction, ttlUnixMs: String(Date.now() + 60_000) },
-  })
+  }, "pt-BR"))
   assert.match(review, /mint de 7 unidade/)
   assert.doesNotMatch(review, /mint de 999 unidade/)
+})
+
+test("reviews render English copy and locale-sensitive EAC quantities", () => {
+  const policy = "b".repeat(56)
+  const asset = "454143"
+  const review = render(eacMintReview({
+    policyId: policy,
+    assetNameHex: asset,
+    tokenName: "EAC",
+    recipientAddress: recipient,
+    transaction: {
+      network: "testnet",
+      feeLovelace: "180000",
+      ttlUnixMs: String(Date.now() + 60_000),
+      mint: { map: { [policy]: { [asset]: "12088322" } } },
+      outputs: [{
+        address: recipient,
+        assets: { multiAsset: { map: { [policy]: { [asset]: "12088322" } } } },
+      }],
+      auxiliaryData: { "65536": { version: "1", unit: "EAC", decimals: "3" } },
+    },
+  }, "en"), "en")
+
+  assert.match(review, /issuance of 12088322 units/)
+  assert.match(review, /12,088\.322 EAC/)
+  assert.match(review, /valid until/i)
 })

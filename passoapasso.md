@@ -1,5 +1,7 @@
 # Roteiro de facilitação do Cardano Technical Workshop
 
+[English version](passoapasso.en.md)
+
 A Workbench web contém as instruções operacionais, o estado, a recuperação e a condição de conclusão de cada exercício. Este roteiro orienta a facilitação e evita antecipar a solução antes da primeira tentativa dos participantes.
 
 ## 1. Preparação
@@ -94,6 +96,14 @@ A interface é a fonte de verdade para:
 - transaction hash, estado pendente e inclusão.
 
 Não explique todos os artefatos antecipadamente. Peça que o participante diga o que mudou após cada etapa.
+
+### 5.1 Seleção de idioma
+
+O seletor no hero fica visível e recebe o nome `Idioma` em português e `Language` em inglês. Português do Brasil (`pt-BR`) é o padrão inicial, independentemente do idioma do navegador. O participante pode alternar para inglês sem recarregar a página.
+
+A preferência explícita fica no `localStorage`, na chave `cardano-technical-workshop.locale.v1`. Ela é separada da sessão das transações mantida no `sessionStorage`, na chave `cardano-technical-workshop.session.v1`. A troca de idioma atualiza instruções visíveis, nomes acessíveis, anúncios de status, formatação dependente de locale, `html.lang` e o header `Accept-Language` das requisições seguintes à API. O backend localiza a nota de prontidão e problemas estruturados, responde com `Content-Language` e inclui `Accept-Language` em `Vary`; um header ausente ou incompatível usa `pt-BR`. A troca não altera valores dos inputs, estágios do pipeline, CBOR, witnesses, transaction hashes, estado da sessão ou autorização da wallet.
+
+Depois de um reload, o idioma selecionado continua ativo e o estado preservado das transações ainda pode ser oferecido para restauração. A wallet CIP-30 permanece desconectada até uma nova conexão do participante. Trate a troca de idioma somente como apresentação. Não peça que o participante reconstrua ou reinicie um exercício depois da troca.
 
 ## 6. Exercício 1: pagamento simples
 
@@ -269,6 +279,8 @@ Regras de facilitação:
 - `404` na consulta ao Blockfrost significa apenas que o hash ainda não foi indexado; não prova rejeição;
 - signed CBOR, witnesses e endereços não contêm a chave privada, mas ainda são dados operacionais que devem ser descartados após a aula;
 - erros técnicos permanecem disponíveis em detalhes expansíveis.
+
+A preferência de idioma é independente dessas regras. A troca de locale não deve limpar, migrar nem reescrever o estado das transações. Um reload pode restaurar o locale pelo `localStorage` e oferecer o estado das transações pelo `sessionStorage`, enquanto a wallet permanece desconectada.
 
 ## 11. Fechamento
 

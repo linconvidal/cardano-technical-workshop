@@ -12,17 +12,17 @@ import { summarizeTransaction } from "../../../packages/cardano/src/workshop/tra
 
 export const inspectMultisigUnlock = (unsignedCbor: string): Record<string, unknown> => {
   const transaction = Transaction.fromCBORHex(unsignedCbor.trim())
-  if (!transaction.isValid) throw new Error("O CBOR importado está marcado como inválido")
+  if (!transaction.isValid) throw new Error("imported_cbor_marked_invalid")
   assertNoUndisclosedEffects(transaction)
 
   const requiredSigners = (transaction.body.requiredSigners ?? []).map(KeyHash.toHex)
   if (requiredSigners.length !== 2 || new Set(requiredSigners).size !== 2) {
-    throw new Error("O CBOR importado não exige exatamente dois signers distintos")
+    throw new Error("imported_cbor_requires_two_distinct_signers")
   }
 
   const nativeScripts = transaction.witnessSet.nativeScripts ?? []
   if (nativeScripts.length !== 1) {
-    throw new Error("O CBOR importado precisa conter exatamente um script nativo 2-de-2")
+    throw new Error("imported_cbor_requires_one_2_of_2_native_script")
   }
   const matchingScript = nativeScripts.find((nativeScript) => {
     if (nativeScript.script._tag !== "ScriptAll" || nativeScript.script.scripts.length !== 2) return false
@@ -32,11 +32,11 @@ export const inspectMultisigUnlock = (unsignedCbor: string): Record<string, unkn
     return sameSet(scriptSigners, requiredSigners)
   })
   if (!matchingScript) {
-    throw new Error("O CBOR importado não contém um script 2-de-2 compatível com os required signers")
+    throw new Error("imported_cbor_script_signers_mismatch")
   }
 
   if (transaction.body.inputs.length !== 1) {
-    throw new Error("O unlock importado precisa consumir exatamente um UTxO do script")
+    throw new Error("imported_unlock_requires_one_script_utxo")
   }
 
   const scriptAddress = Address.toBech32(new Address.Address({
@@ -49,16 +49,16 @@ export const inspectMultisigUnlock = (unsignedCbor: string): Record<string, unkn
     assets: output.assets.toJSON(),
   }))
   if (outputs.some((output) => !output.address.startsWith("addr_test"))) {
-    throw new Error("O CBOR importado contém output fora de testnet")
+    throw new Error("imported_cbor_has_non_testnet_output")
   }
   if (outputs.some((output) => output.assets.multiAsset !== undefined)) {
-    throw new Error("O unlock importado precisa movimentar somente tADA")
+    throw new Error("imported_unlock_contains_non_tada_assets")
   }
 
   const scriptChange = outputs.filter((output) => output.address === scriptAddress)
   const destinations = outputs.filter((output) => output.address !== scriptAddress)
   if (scriptChange.length !== 1 || destinations.length !== 1) {
-    throw new Error("O unlock importado precisa ter um destino e um output de troco para o script")
+    throw new Error("imported_unlock_output_shape_invalid")
   }
 
   const selectedInput = transaction.body.inputs[0]
@@ -104,7 +104,7 @@ const assertNoUndisclosedEffects = (transaction: Transaction.Transaction) => {
     transaction.witnessSet.plutusV3Scripts,
   ]
   if (forbidden.some((value) => value !== undefined && value !== null)) {
-    throw new Error("O CBOR importado contém efeitos ou witnesses fora do unlock nativo permitido")
+    throw new Error("imported_cbor_contains_undisclosed_effects")
   }
 }
 

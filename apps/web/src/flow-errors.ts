@@ -1,35 +1,47 @@
+import { messageRef, type MessageRef } from "../../../packages/localization/src/index.js"
 import { HttpError } from "./http.js"
 import type { FlowAction, FlowError } from "./workbench-state.js"
 
+export class MessageError extends Error {
+  constructor(
+    readonly code: string,
+    readonly messageRef: MessageRef,
+    readonly guidanceRef?: MessageRef,
+    readonly retryable = true,
+    readonly technicalDetail?: string,
+  ) {
+    super(code)
+    this.name = "MessageError"
+  }
+}
+
 export const toFlowError = (action: FlowAction, error: unknown): FlowError => {
+  if (error instanceof MessageError) {
+    return {
+      action,
+      message: error.messageRef,
+      guidance: error.guidanceRef ?? actionGuidance(action),
+      technicalDetail: error.technicalDetail ?? error.code,
+      retryable: error.retryable,
+    }
+  }
+
   if (action === "submit" && error instanceof HttpError && (error.status === 0 || error.status >= 500)) {
     return {
       action,
-      message: "O resultado da submissão é desconhecido",
-      guidance: "Use o hash calculado e verifique a inclusão antes de tentar submeter o mesmo signed CBOR novamente.",
+      message: messageRef("flow.error.submissionUnknown.message"),
+      guidance: messageRef("flow.error.submissionUnknown.guidance"),
       technicalDetail: error.problem.technicalDetail,
       retryable: true,
     }
   }
 
-  const observedDetail = error instanceof HttpError
-    ? error.problem.technicalDetail ?? error.problem.message
-    : error instanceof Error ? error.message : String(error)
-  if (/transação EAC.*expir|janela de validade da transação EAC/i.test(observedDetail)) {
+  if (error instanceof HttpError && error.problem.code === "transaction_expired") {
     return {
       action,
-      message: "A transação EAC expirou",
-      guidance: "Reinicie a emissão e construa uma nova transação. A policy permanece a mesma; somente a validade da transação será renovada.",
-      technicalDetail: observedDetail,
-      retryable: false,
-    }
-  }
-  if (/validade.*expir|policy.*expir|expired/i.test(observedDetail)) {
-    return {
-      action,
-      message: "A validade da policy do mint expirou",
-      guidance: "Reinicie o exercício e construa um novo mint para obter outra janela de validade.",
-      technicalDetail: observedDetail,
+      message: messageRef("flow.error.transactionExpired.message"),
+      guidance: messageRef("flow.error.transactionExpired.guidance"),
+      technicalDetail: error.problem.technicalDetail ?? error.problem.message,
       retryable: false,
     }
   }
@@ -37,8 +49,8 @@ export const toFlowError = (action: FlowAction, error: unknown): FlowError => {
   if (error instanceof HttpError) {
     return {
       action,
-      message: error.problem.message,
-      guidance: error.problem.guidance ?? actionGuidance(action),
+      message: error.problem.messageRef ?? messageRef("flow.error.backend.message"),
+      guidance: error.problem.guidanceRef ?? actionGuidance(action),
       technicalDetail: error.problem.technicalDetail,
       retryable: error.problem.retryable,
     }
@@ -47,17 +59,21 @@ export const toFlowError = (action: FlowAction, error: unknown): FlowError => {
   const technicalDetail = error instanceof Error ? error.message : String(error)
   return {
     action,
-    message: action === "sign" ? "A wallet não produziu a assinatura" : "A etapa não pôde ser concluída",
+    message: action === "sign"
+      ? messageRef("flow.error.sign.message")
+      : messageRef("flow.error.generic.message"),
     guidance: actionGuidance(action),
     technicalDetail,
     retryable: true,
   }
 }
 
-const actionGuidance = (action: FlowAction): string => ({
-  build: "Confira os campos, a rede Preprod e o saldo de tADA. Depois, tente construir novamente.",
-  sign: "Confira a extensão, conecte a wallet correta e aprove a assinatura. Depois, tente novamente.",
-  merge: "Confira se os witnesses pertencem ao mesmo unsigned CBOR e tente anexá-los novamente.",
-  submit: "Preserve o signed CBOR e o hash, se houver. Tente novamente ou consulte o Cardanoscan antes de reconstruir.",
-  check: "Aguarde alguns segundos e verifique novamente. O hash submetido foi preservado.",
-})[action]
+const guidanceKeys = {
+  build: "flow.guidance.build",
+  sign: "flow.guidance.sign",
+  merge: "flow.guidance.merge",
+  submit: "flow.guidance.submit",
+  check: "flow.guidance.check",
+} as const satisfies Record<FlowAction, MessageRef["key"]>
+
+const actionGuidance = (action: FlowAction): MessageRef => messageRef(guidanceKeys[action])

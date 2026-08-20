@@ -1,3 +1,4 @@
+import { formatDateTime, formatMessage, messageRef, type Locale } from "../../../packages/localization/src/index.js"
 import type { WorkbenchFlowControllers } from "./workbench-flows.js"
 import type { FlowState } from "./workbench-state.js"
 import { parseSession, serializeSession } from "./workbench-session.js"
@@ -11,11 +12,13 @@ type SessionControllerConfig = {
   onRestored: () => void
   isBusy: () => boolean
   log: WorkbenchLogger
+  locale: () => Locale
 }
 
 export class SessionController {
   private readonly banner = select<HTMLElement>("#resumeBanner")
   private resumeOfferPending = false
+  private offeredSavedAt?: string
 
   constructor(private readonly config: SessionControllerConfig) {
     select<HTMLButtonElement>("#resumeSession").addEventListener("click", () => this.restore())
@@ -27,9 +30,13 @@ export class SessionController {
     if (!saved) return
 
     this.resumeOfferPending = true
-    const savedAt = new Date(saved.savedAt).toLocaleString("pt-BR")
-    select<HTMLElement>("#resumeDescription").textContent = `Salva nesta aba em ${savedAt}. A wallet e o setup multisig deverão ser validados novamente.`
+    this.offeredSavedAt = saved.savedAt
+    this.renderOffer()
     setVisible(this.banner, true)
+  }
+
+  rerenderForLocale() {
+    if (this.resumeOfferPending) this.renderOffer()
   }
 
   save() {
@@ -46,7 +53,7 @@ export class SessionController {
 
   private restore() {
     if (this.config.isBusy()) {
-      this.config.log("Aguarde a etapa em andamento antes de restaurar a sessão.")
+      this.config.log(messageRef("session.log.busy"))
       return
     }
 
@@ -63,16 +70,31 @@ export class SessionController {
     }
 
     this.resumeOfferPending = false
+    this.offeredSavedAt = undefined
     setVisible(this.banner, false)
     this.config.onRestored()
     this.save()
-    this.config.log("Sessão restaurada. Reconecte a wallet antes de assinar ou construir.")
+    this.config.log(messageRef("session.log.restored"))
   }
 
   private discard() {
     this.resumeOfferPending = false
+    this.offeredSavedAt = undefined
     sessionStorage.removeItem(SESSION_KEY)
     setVisible(this.banner, false)
-    this.config.log("Sessão salva descartada.")
+    this.config.log(messageRef("session.log.discarded"))
+  }
+
+  private renderOffer() {
+    if (!this.offeredSavedAt) return
+    const locale = this.config.locale()
+    const savedAt = formatDateTime(this.offeredSavedAt, locale, {
+      dateStyle: "short",
+      timeStyle: "medium",
+    })
+    select<HTMLElement>("#resumeDescription").textContent = formatMessage(
+      messageRef("session.description", { savedAt }),
+      locale,
+    )
   }
 }
