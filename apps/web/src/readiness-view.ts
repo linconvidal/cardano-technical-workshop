@@ -1,15 +1,25 @@
+import {
+  formatMessage,
+  messageRef,
+  type Locale,
+  type MessageKey,
+  type MessageRef,
+} from "../../../packages/localization/src/index.js"
 import type { WorkbenchReadiness } from "./readiness.js"
 import { select } from "./workbench-ui.js"
 import { discoverWallets } from "./wallet.js"
 
-export const populateWalletOptions = (selected = select<HTMLSelectElement>("#walletName").value) => {
+export const populateWalletOptions = (
+  locale: Locale,
+  selected = select<HTMLSelectElement>("#walletName").value,
+) => {
   const walletNameInput = select<HTMLSelectElement>("#walletName")
   const connectButton = select<HTMLButtonElement>("#connectWallet")
-  const wallets = discoverWallets()
+  const wallets = discoverWallets(locale)
   walletNameInput.replaceChildren()
 
   if (wallets.length === 0) {
-    walletNameInput.add(new Option("Nenhuma wallet CIP-30 detectada", ""))
+    walletNameInput.add(new Option(formatMessage(messageRef("readiness.wallet.none"), locale), ""))
     walletNameInput.disabled = true
     connectButton.disabled = true
     return
@@ -21,78 +31,94 @@ export const populateWalletOptions = (selected = select<HTMLSelectElement>("#wal
   connectButton.disabled = false
 }
 
-export const renderReadiness = (readiness: WorkbenchReadiness) => {
+export const renderReadiness = (readiness: WorkbenchReadiness, locale: Locale) => {
   const response = readiness.response
-  setReadinessItem("backendReadiness", readiness.error ? "error" : response ? "ready" : "checking")
+  setReadinessItem("backendReadiness", readiness.error ? "error" : response ? "ready" : "checking", locale)
   setReadinessItem(
     "providerReadiness",
     response?.provider.healthy ? "ready" : response?.provider.configured ? "warning" : response ? "error" : "checking",
+    locale,
   )
-  setReadinessItem("walletExtensionReadiness", discoverWallets().length > 0 ? "ready" : "error")
-  setReadinessItem("walletNetworkReadiness", readiness.walletConnected ? "ready" : "pending")
+  setReadinessItem("walletExtensionReadiness", discoverWallets(locale).length > 0 ? "ready" : "error", locale)
+  setReadinessItem("walletNetworkReadiness", readiness.walletConnected ? "ready" : "pending", locale)
   setReadinessItem(
     "walletFundingReadiness",
     !readiness.walletConnected ? "pending" : response?.wallet?.funded ? "ready" : "warning",
+    locale,
   )
 
   const message = select<HTMLElement>("#readinessMessage")
-  if (readiness.checking) setReadinessMessage(message, "Verificando backend e Blockfrost Preprod...", "info")
-  else if (readiness.error) setReadinessMessage(
-    message,
-    `${readiness.error}. Confirme que npm run dev está em execução.`,
-    "error",
-  )
+  if (readiness.checking) setReadinessMessage(message, messageRef("readiness.message.checking"), "info", locale)
+  else if (readiness.error) setReadinessMessage(message, messageRef("readiness.message.error"), "error", locale)
   else if (!response?.provider.configured) setReadinessMessage(
     message,
-    "Configure BLOCKFROST_PROJECT_ID no backend e reinicie a Workbench.",
+    messageRef("readiness.message.providerMissing"),
     "error",
+    locale,
   )
   else if (!response.provider.healthy) setReadinessMessage(
     message,
-    "O Blockfrost Preprod está indisponível. Seus campos e artefatos continuam nesta aba; aguarde e tente novamente.",
+    messageRef("readiness.message.providerUnavailable"),
     "error",
+    locale,
   )
   else if (!readiness.walletConnected) setReadinessMessage(
     message,
-    "Backend pronto. Conecte uma wallet configurada em Preprod.",
+    messageRef("readiness.message.connectWallet"),
     "info",
+    locale,
   )
   else if (!response.wallet?.funded) setReadinessMessage(
     message,
-    "Wallet conectada, mas sem UTxO visível na Preprod. Confirme a rede e receba tADA.",
+    messageRef("readiness.message.walletUnfunded"),
     "warning",
+    locale,
   )
   else setReadinessMessage(
     message,
-    `Ambiente pronto. ${response.wallet.utxoCount} UTxO(s) encontrado(s) para esta wallet.`,
+    messageRef(
+      response.wallet.utxoCount === 1 ? "readiness.message.ready.one" : "readiness.message.ready.other",
+      { count: new Intl.NumberFormat(locale).format(response.wallet.utxoCount) },
+    ),
     "success",
+    locale,
   )
 }
 
 const setReadinessMessage = (
   element: HTMLElement,
-  text: string,
+  reference: MessageRef,
   tone: "info" | "warning" | "error" | "success",
+  locale: Locale,
 ) => {
-  element.textContent = text
+  element.textContent = formatMessage(reference, locale)
   element.dataset.tone = tone
 }
 
-const setReadinessItem = (
-  id: string,
-  status: "checking" | "pending" | "ready" | "warning" | "error",
-) => {
+type ReadinessStatus = "checking" | "pending" | "ready" | "warning" | "error"
+
+const statusKeys = {
+  checking: "readiness.status.checking",
+  pending: "readiness.status.pending",
+  ready: "readiness.status.ready",
+  warning: "readiness.status.warning",
+  error: "readiness.status.error",
+} as const satisfies Record<ReadinessStatus, MessageKey>
+
+const itemKeys = {
+  backendReadiness: "readiness.item.backend",
+  providerReadiness: "readiness.item.provider",
+  walletExtensionReadiness: "readiness.item.extension",
+  walletNetworkReadiness: "readiness.item.network",
+  walletFundingReadiness: "readiness.item.funding",
+} as const satisfies Record<string, MessageKey>
+
+const setReadinessItem = (id: keyof typeof itemKeys, status: ReadinessStatus, locale: Locale) => {
   const item = select<HTMLElement>(`#${id}`)
-  const label = ({
-    checking: "Verificando",
-    pending: "Pendente",
-    ready: "Pronto",
-    warning: "Atenção",
-    error: "Erro",
-  })[status]
-  const title = item.querySelector("strong")?.textContent ?? id
+  const label = formatMessage(messageRef(statusKeys[status]), locale)
+  const title = formatMessage(messageRef(itemKeys[id]), locale)
   item.dataset.status = status
   item.dataset.statusLabel = label
-  item.setAttribute("aria-label", `${title}: ${label}`)
+  item.setAttribute("aria-label", formatMessage(messageRef("readiness.item.label", { title, status: label }), locale))
   item.setAttribute("aria-live", "polite")
 }

@@ -89,7 +89,7 @@ export const buildMintTx = async (params: MintBuildParams): Promise<TxBuildResul
       requiredSigner: KeyHash.toHex(userKeyHash),
       metadataLabel: "721",
       metadataVersion: "2",
-      metadataKeyFormat: "byte strings for policy id and asset name",
+      metadataKeyFormat: "byte strings for policy ID and asset name",
       expiresAtUnixMs: expiresAt.toString(),
       transaction: summarizeTransaction(transaction),
     },

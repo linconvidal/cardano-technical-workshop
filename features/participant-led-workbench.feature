@@ -12,6 +12,29 @@ Funcionalidade: Execução participante-led da Workbench Cardano
     E cada pré-requisito ausente deve informar como ser corrigido
     E nenhuma ação de assinatura ou submissão deve estar habilitada
 
+  Cenário: Abrir em português e trocar o idioma sem perder estado
+    Dado que a Workbench foi aberta sem preferência de idioma salva
+    Então o seletor de idioma deve estar visível e ter um nome acessível
+    E português do Brasil deve ser o idioma padrão mesmo quando o navegador preferir inglês
+    E o atributo lang do documento deve ser pt-BR
+    Quando o participante preencher um input e escolher inglês
+    Então a página deve mudar para inglês sem reload
+    E textos estáticos, textos dinâmicos, nomes acessíveis e anúncios devem estar em inglês
+    E o atributo lang do documento deve ser en
+    Mas inputs, estágio, artefatos, estado da sessão e autorização da wallet não devem ser alterados
+    E as requisições seguintes à API devem enviar Accept-Language en
+
+  Cenário: Restaurar preferências separadas depois de recarregar
+    Dado que o participante escolheu inglês e possui estado de transação preservado na aba
+    Quando a página for recarregada
+    Então a preferência de inglês deve ser restaurada do localStorage
+    E o estado de transação deve continuar separado no sessionStorage
+    Mas a wallet deve continuar desconectada até nova autorização CIP-30
+    Quando o participante escolher português do Brasil
+    Então o atributo lang do documento deve voltar a pt-BR sem reload
+    E as requisições seguintes à API devem enviar Accept-Language pt-BR
+    E o estado da transação e da sessão deve permanecer inalterado
+
   Cenário: Seguir o pagamento na ordem correta
     Dado que backend, Blockfrost, wallet Preprod e saldo estão prontos
     Quando o participante preencher um pagamento válido

@@ -1,6 +1,7 @@
 import { Address, KeyHash, Transaction } from "@evolution-sdk/evolution"
 
 import { expectKeyHash } from "../../../packages/cardano/src/internal/addresses.js"
+import { messageRef } from "../../../packages/localization/src/index.js"
 import type {
   EacIssuanceMetadata,
   EacMintBuildParams,
@@ -98,9 +99,9 @@ export const parseEacMintRequest = (body: EacMintRequest = {}): EacMintBuildPara
   const recipientAddress = parseTestnetAddress(body.recipientAddress, "recipientAddress")
   if (userAddress !== recipientAddress) {
     throw new RequestValidationError(
-      "O saldo EAC do exercício precisa permanecer na wallet conectada",
+      messageRef("api.validation.eacConnectedWallet"),
       "recipientAddress",
-      "Use o endereço da wallet conectada para permitir a aposentadoria posterior.",
+      messageRef("api.validation.eacConnectedWallet.guidance"),
     )
   }
   return { userAddress, recipientAddress, metadata: parseEacIssuanceMetadata(body.metadataJson) }
@@ -117,9 +118,9 @@ export const parseMultisigRequest = (body: MultisigRequest = {}): MultisigParams
 
   if (paymentKeyHash(userAddress) === paymentKeyHash(secondSignerAddress)) {
     throw new RequestValidationError(
-      "Os dois signers precisam usar chaves de pagamento diferentes",
+      messageRef("api.validation.distinctSigners"),
       "secondSignerAddress",
-      "Conecte ou informe uma segunda wallet com outra chave de pagamento.",
+      messageRef("api.validation.distinctSigners.guidance"),
     )
   }
 
@@ -144,9 +145,9 @@ export const parseSubmitTxRequest = (body: SubmitTxRequest = {}): string => {
     return cbor
   } catch {
     throw new RequestValidationError(
-      "signedTxCbor não representa uma transação Cardano válida",
+      messageRef("api.validation.signedTransaction"),
       "signedTxCbor",
-      "Use o signed tx CBOR produzido pela etapa de anexar witnesses.",
+      messageRef("api.validation.signedTransaction.guidance"),
     )
   }
 }
@@ -156,17 +157,17 @@ export const parseMultisigInputVerificationRequest = (
 ): { scriptAddress: string; scriptUtxo: string } => {
   const scriptAddress = parseTestnetAddress(body.scriptAddress, "scriptAddress")
   if (Address.fromBech32(scriptAddress).paymentCredential._tag !== "ScriptHash") {
-    throw new RequestValidationError("scriptAddress precisa usar uma credencial de script", "scriptAddress")
+    throw new RequestValidationError(messageRef("api.validation.scriptCredential"), "scriptAddress")
   }
   const scriptUtxo = optionalOutRef(body.scriptUtxo)
-  if (!scriptUtxo) throw new RequestValidationError("scriptUtxo é obrigatório", "scriptUtxo")
+  if (!scriptUtxo) throw new RequestValidationError(messageRef("api.validation.scriptUtxoRequired"), "scriptUtxo")
   return { scriptAddress, scriptUtxo }
 }
 
 export const parseTransactionHash = (value: unknown): string => {
   const txHash = requireString(value, "txHash")
   if (/^[0-9a-fA-F]{64}$/.test(txHash)) return txHash.toLowerCase()
-  throw new RequestValidationError("txHash precisa ter 64 caracteres hexadecimais", "txHash")
+  throw new RequestValidationError(messageRef("api.validation.transactionHash"), "txHash")
 }
 
 const EAC_METADATA_KEYS = [
@@ -185,28 +186,28 @@ const parseEacIssuanceMetadata = (value: unknown): EacIssuanceMetadata => {
     parsed = JSON.parse(raw)
   } catch {
     throw new RequestValidationError(
-      "metadataJson precisa conter um objeto JSON válido",
+      messageRef("api.validation.validMetadataJson"),
       "metadataJson",
-      "Corrija a sintaxe do JSON e preserve somente os seis campos do schema de emissão EAC.",
+      messageRef("api.validation.issuanceMetadataJson.guidance"),
     )
   }
 
   if (!isRecord(parsed)) {
-    throw new RequestValidationError("metadataJson precisa ser um objeto JSON", "metadataJson")
+    throw new RequestValidationError(messageRef("api.validation.metadataJsonObject"), "metadataJson")
   }
 
   const keys = Object.keys(parsed).sort()
   if (keys.length !== EAC_METADATA_KEYS.length || keys.some((key, index) => key !== EAC_METADATA_KEYS[index])) {
     throw new RequestValidationError(
-      `metadataJson precisa conter exatamente: ${EAC_METADATA_KEYS.join(", ")}`,
+      messageRef("api.validation.metadataExactKeys", { keys: EAC_METADATA_KEYS.join(", ") }),
       "metadataJson",
-      "Não duplique asset name, ação ou quantidade na metadata.",
+      messageRef("api.validation.issuanceMetadataKeys.guidance"),
     )
   }
 
   if (parsed.version !== 1 || parsed.unit !== "EAC" || parsed.decimals !== 3) {
     throw new RequestValidationError(
-      "metadataJson precisa usar version 1, unit EAC e decimals 3",
+      messageRef("api.validation.issuanceMetadataConstants"),
       "metadataJson",
     )
   }
@@ -227,22 +228,22 @@ const parseEacRetirementMetadata = (value: unknown): EacRetirementMetadata => {
   try {
     parsed = JSON.parse(raw)
   } catch {
-    throw new RequestValidationError("metadataJson precisa conter um objeto JSON válido", "metadataJson")
+    throw new RequestValidationError(messageRef("api.validation.validMetadataJson"), "metadataJson")
   }
   if (!isRecord(parsed)) {
-    throw new RequestValidationError("metadataJson precisa ser um objeto JSON", "metadataJson")
+    throw new RequestValidationError(messageRef("api.validation.metadataJsonObject"), "metadataJson")
   }
   const expected = ["declaration_hash", "delivery_reference_hash", "version"]
   const keys = Object.keys(parsed).sort()
   if (keys.length !== expected.length || keys.some((key, index) => key !== expected[index])) {
     throw new RequestValidationError(
-      `metadataJson precisa conter exatamente: ${expected.join(", ")}`,
+      messageRef("api.validation.metadataExactKeys", { keys: expected.join(", ") }),
       "metadataJson",
-      "Não duplique ação, asset name ou quantidade na metadata.",
+      messageRef("api.validation.retirementMetadataKeys.guidance"),
     )
   }
   if (parsed.version !== 1) {
-    throw new RequestValidationError("metadataJson precisa usar version 1", "metadataJson")
+    throw new RequestValidationError(messageRef("api.validation.retirementMetadataVersion"), "metadataJson")
   }
   return {
     version: 1,
@@ -254,7 +255,7 @@ const parseEacRetirementMetadata = (value: unknown): EacRetirementMetadata => {
 const requireCanonicalHash = (value: unknown, field: string): string => {
   if (typeof value === "string" && /^[0-9a-f]{64}$/.test(value)) return value
   throw new RequestValidationError(
-    `${field} precisa ter exatamente 64 caracteres hexadecimais minúsculos`,
+    messageRef("api.validation.canonicalHash", { field }),
     "metadataJson",
   )
 }
@@ -264,36 +265,36 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const requireString = (value: unknown, field: string): string => {
   if (typeof value === "string" && value.trim()) return value.trim()
-  throw new RequestValidationError(`Campo obrigatório ou inválido: ${field}`, field)
+  throw new RequestValidationError(messageRef("api.validation.required", { field }), field)
 }
 
 const requireBoundedString = (value: unknown, field: string, maximumUtf8Bytes: number): string => {
   const parsed = requireString(value, field)
   if (Buffer.byteLength(parsed, "utf8") <= maximumUtf8Bytes) return parsed
-  throw new RequestValidationError(`${field} excede ${maximumUtf8Bytes} bytes em UTF-8`, field)
+  throw new RequestValidationError(messageRef("api.validation.tooLong", { field, maximumUtf8Bytes }), field)
 }
 
 const requireHex = (value: unknown, field: string): string => {
   const clean = requireString(value, field).replace(/^0x/, "")
   if (clean.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(clean)) return clean
-  throw new RequestValidationError(`${field} precisa ser CBOR hexadecimal válido`, field)
+  throw new RequestValidationError(messageRef("api.validation.validHexCbor", { field }), field)
 }
 
 const optionalOutRef = (value: unknown): string | undefined => {
   if (value === undefined || value === null || value === "") return undefined
   const outRef = requireString(value, "scriptUtxo")
   if (/^[0-9a-fA-F]{64}#\d+$/.test(outRef)) return outRef.toLowerCase()
-  throw new RequestValidationError("scriptUtxo precisa usar o formato txhash#index", "scriptUtxo")
+  throw new RequestValidationError(messageRef("api.validation.scriptUtxoFormat"), "scriptUtxo")
 }
 
 const parsePositiveBigInt = (value: unknown, field: string, maximum: bigint): bigint => {
   let parsed: bigint
   if (typeof value === "number" && Number.isSafeInteger(value)) parsed = BigInt(value)
   else if (typeof value === "string" && /^\d+$/.test(value)) parsed = BigInt(value)
-  else throw new RequestValidationError(`${field} precisa ser um número inteiro positivo`, field)
+  else throw new RequestValidationError(messageRef("api.validation.positiveInteger", { field }), field)
 
-  if (parsed <= 0n) throw new RequestValidationError(`${field} precisa ser maior que zero`, field)
-  if (parsed > maximum) throw new RequestValidationError(`${field} excede o limite aceito`, field)
+  if (parsed <= 0n) throw new RequestValidationError(messageRef("api.validation.greaterThanZero", { field }), field)
+  if (parsed > maximum) throw new RequestValidationError(messageRef("api.validation.maximum", { field }), field)
   return parsed
 }
 
@@ -304,18 +305,18 @@ export const parseTestnetAddress = (value: unknown, field = "address"): string =
     const address = Address.fromBech32(bech32)
     if (address.networkId !== 0) {
       throw new RequestValidationError(
-        `${field} precisa ser um endereço de testnet`,
+        messageRef("api.validation.testnetAddress", { field }),
         field,
-        "Selecione Cardano Preprod na wallet e use um endereço addr_test.",
+        messageRef("api.validation.testnetAddress.guidance"),
       )
     }
     return Address.toBech32(address)
   } catch (error) {
     if (error instanceof RequestValidationError) throw error
     throw new RequestValidationError(
-      `${field} não é um endereço Cardano válido`,
+      messageRef("api.validation.cardanoAddress", { field }),
       field,
-      "Use um endereço addr_test da rede Preprod.",
+      messageRef("api.validation.cardanoAddress.guidance"),
     )
   }
 }

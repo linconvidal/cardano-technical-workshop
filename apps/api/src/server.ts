@@ -26,7 +26,19 @@ import {
   listMultisigScriptUtxos,
   verifyMultisigScriptUtxo,
 } from "../../../packages/cardano/src/workshop/04-multisig.js"
-import { ApiError, type ApiProblem } from "./api-error.js"
+import {
+  formatMessage,
+  messageRef,
+  resolveLocale,
+  type Locale,
+} from "../../../packages/localization/src/index.js"
+import {
+  ApiError,
+  insufficientFundsProblem,
+  localizeApiProblem,
+  workshopActionFailedProblem,
+  type ApiProblem,
+} from "./api-error.js"
 import {
   parseEacMintRequest,
   parseEacRetireRequest,
@@ -55,6 +67,14 @@ const asyncRoute = (handler: AsyncRouteHandler): express.RequestHandler => (req,
   Promise.resolve(handler(req, res)).catch(next)
 }
 
+app.use((req, res, next) => {
+  if (!req.path.startsWith("/api")) return next()
+  const locale = requestLocale(req.get("accept-language"))
+  res.locals.locale = locale
+  res.set("Content-Language", locale)
+  res.vary("Accept-Language")
+  return next()
+})
 app.use(express.json({ limit: "2mb" }))
 
 app.get("/api/health", (_req, res) => {
@@ -76,7 +96,7 @@ app.get("/api/readiness", asyncRoute(async (req, res) => {
     network: "preprod",
     provider,
     wallet,
-    note: "CIP-30 network id 0 confirms testnet, but the wallet must still be set explicitly to Preprod rather than Preview.",
+    note: formatMessage(messageRef("api.readiness.note"), res.locals.locale as Locale),
   })
 }))
 
@@ -154,7 +174,8 @@ if (existsSync(distPath)) {
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   const { status, problem } = toApiProblem(error)
-  res.status(status).json({ error: problem })
+  const locale = (res.locals.locale as Locale | undefined) ?? requestLocale(undefined)
+  res.status(status).json({ error: localizeApiProblem(problem, locale) })
 })
 
 app.listen(port, host, () => {
@@ -169,9 +190,9 @@ const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } =
       status: 400,
       problem: {
         code: "invalid_json",
-        message: "O corpo da requisição não é JSON válido",
+        message: messageRef("api.invalidJson.message"),
         retryable: false,
-        guidance: "Corrija o JSON antes de enviar novamente.",
+        guidance: messageRef("api.invalidJson.guidance"),
         technicalDetail: redactTechnicalDetail(error.message),
       },
     }
@@ -187,14 +208,16 @@ const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } =
           ? "provider_authentication_failed"
           : rateLimited ? "provider_rate_limited" : "blockfrost_error",
         message: authenticationFailure
-          ? "O Blockfrost recusou a credencial configurada"
-          : rateLimited ? "O Blockfrost limitou temporariamente as requisições" : "A Preprod não respondeu como esperado",
+          ? messageRef("api.providerAuthenticationFailed.message")
+          : rateLimited
+            ? messageRef("api.providerRateLimited.message")
+            : messageRef("api.blockfrostError.message"),
         retryable: rateLimited || error.status >= 500,
         guidance: authenticationFailure
-          ? "Revise BLOCKFROST_PROJECT_ID no backend e reinicie a Workbench."
+          ? messageRef("api.providerAuthenticationFailed.guidance")
           : rateLimited
-            ? "Aguarde alguns segundos e tente novamente."
-            : "Mantenha os artefatos atuais e tente novamente. Se persistir, confirme a configuração do Blockfrost.",
+            ? messageRef("api.providerRateLimited.guidance")
+            : messageRef("api.blockfrostError.guidance"),
         technicalDetail: redactTechnicalDetail(error.message),
       },
     }
@@ -206,9 +229,9 @@ const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } =
       status: 503,
       problem: {
         code: "provider_not_ready",
-        message: "O backend ainda não tem uma credencial Blockfrost Preprod",
+        message: messageRef("api.providerNotReady.message"),
         retryable: false,
-        guidance: "Configure BLOCKFROST_PROJECT_ID no backend e reinicie a Workbench.",
+        guidance: messageRef("api.providerNotReady.guidance"),
         technicalDetail,
       },
     }
@@ -219,35 +242,25 @@ const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } =
       status: 409,
       problem: {
         code: "script_utxo_unavailable",
-        message: "O UTxO multisig escolhido não está disponível",
+        message: messageRef("api.scriptUtxoUnavailable.message"),
         retryable: true,
-        guidance: "Liste os UTxOs novamente. Se o lock acabou de ser incluído, aguarde a indexação antes de repetir.",
+        guidance: messageRef("api.scriptUtxoUnavailable.guidance"),
         technicalDetail,
       },
     }
   }
 
-  if (/insufficient|not enough|balance/i.test(technicalDetail)) {
-    return {
-      status: 409,
-      problem: {
-        code: "insufficient_funds",
-        message: "A wallet não possui saldo utilizável suficiente",
-        retryable: false,
-        guidance: "Confirme Preprod, receba tADA e construa novamente para selecionar UTxOs atuais.",
-        technicalDetail,
-      },
-    }
-  }
+  const insufficientFunds = insufficientFundsProblem(technicalDetail)
+  if (insufficientFunds) return insufficientFunds
 
   if (/CIP-25|asset name|at most .* bytes/i.test(technicalDetail)) {
     return {
       status: 400,
       problem: {
         code: "invalid_asset_metadata",
-        message: "Os campos do Native Asset não atendem aos limites",
+        message: messageRef("api.invalidAssetMetadata.message"),
         retryable: false,
-        guidance: "Ajuste asset name ou metadata e construa uma nova transação.",
+        guidance: messageRef("api.invalidAssetMetadata.guidance"),
         technicalDetail,
       },
     }
@@ -258,9 +271,9 @@ const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } =
       status: 400,
       problem: {
         code: "invalid_transaction_cbor",
-        message: "O CBOR da transação não pôde ser decodificado",
+        message: messageRef("api.invalidTransactionCbor.message"),
         retryable: false,
-        guidance: "Use o signed tx CBOR produzido pela etapa de anexar witnesses.",
+        guidance: messageRef("api.invalidTransactionCbor.guidance"),
         technicalDetail,
       },
     }
@@ -271,9 +284,9 @@ const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } =
       status: 409,
       problem: {
         code: "transaction_expired",
-        message: "A janela de validade da transação terminou",
+        message: messageRef("api.transactionExpired.message"),
         retryable: false,
-        guidance: "Reinicie o exercício e construa uma nova transação antes de assinar ou submeter.",
+        guidance: messageRef("api.transactionExpired.guidance"),
         technicalDetail,
       },
     }
@@ -284,9 +297,9 @@ const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } =
       status: 409,
       problem: {
         code: "input_already_spent",
-        message: "Um input da transação já foi consumido",
+        message: messageRef("api.inputAlreadySpent.message"),
         retryable: false,
-        guidance: "Consulte novamente a rede e reconstrua a transação com UTxOs atuais.",
+        guidance: messageRef("api.inputAlreadySpent.guidance"),
         technicalDetail,
       },
     }
@@ -297,9 +310,9 @@ const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } =
       status: 503,
       problem: {
         code: "provider_rate_limited",
-        message: "O Blockfrost limitou temporariamente as requisições",
+        message: messageRef("api.providerRateLimited.message"),
         retryable: true,
-        guidance: "Aguarde alguns segundos e repita somente a etapa atual.",
+        guidance: messageRef("api.providerRateLimitedCurrentStep.guidance"),
         technicalDetail,
       },
     }
@@ -310,27 +323,34 @@ const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } =
       status: 503,
       problem: {
         code: "provider_authentication_failed",
-        message: "O Blockfrost recusou a credencial configurada",
+        message: messageRef("api.providerAuthenticationFailed.message"),
         retryable: false,
-        guidance: "Revise BLOCKFROST_PROJECT_ID no backend e reinicie a Workbench.",
+        guidance: messageRef("api.providerAuthenticationFailed.guidance"),
         technicalDetail,
       },
     }
   }
 
-  return {
-    status: 422,
-    problem: {
-      code: "workshop_action_failed",
-      message: "A operação não pôde ser concluída",
-      retryable: true,
-      guidance: "Confira os campos e o estado da wallet. Preserve a última etapa válida e tente novamente.",
-      technicalDetail,
-    },
-  }
+  return workshopActionFailedProblem(technicalDetail)
 }
 
 const redactTechnicalDetail = (value: string): string => {
   const projectId = process.env.BLOCKFROST_PROJECT_ID?.trim()
   return projectId ? value.replaceAll(projectId, "[redacted Blockfrost project id]") : value
+}
+
+const requestLocale = (acceptLanguage: string | undefined): Locale => {
+  if (!acceptLanguage) return resolveLocale()
+  const candidates = acceptLanguage
+    .split(",")
+    .map((entry, index) => {
+      const [language = "", ...parameters] = entry.trim().split(";")
+      const qualityParameter = parameters.find((parameter) => parameter.trim().startsWith("q="))
+      const quality = qualityParameter ? Number(qualityParameter.trim().slice(2)) : 1
+      return { language, quality: Number.isFinite(quality) ? quality : 0, index }
+    })
+    .filter(({ language, quality }) => language !== "*" && quality > 0)
+    .sort((left, right) => right.quality - left.quality || left.index - right.index)
+    .map(({ language }) => language)
+  return resolveLocale(candidates)
 }

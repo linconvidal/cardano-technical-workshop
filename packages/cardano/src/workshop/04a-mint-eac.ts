@@ -44,7 +44,7 @@ export const buildEacMintTx = async (params: EacMintBuildParams): Promise<TxBuil
   const expiresAt = Time.slotToUnixTime(expirySlot, slotConfig)
 
   // The stable signer-only policy permits later mint and burn operations by the same key.
-  // The transaction TTL limits this build, but does not change the policy id.
+  // The transaction TTL limits this build, but does not change the policy ID.
   const mintPolicy = makeEacMintPolicy(userKeyHash)
   const policyId = ScriptHash.fromScript(mintPolicy)
   const policyIdHex = ScriptHash.toHex(policyId)
@@ -58,7 +58,7 @@ export const buildEacMintTx = async (params: EacMintBuildParams): Promise<TxBuil
   })
   const existingBalance = await eacBalanceOf(provider, userAddress, policyIdHex, assetNameHex)
   if (existingBalance !== 0n) {
-    throw new Error("A wallet já possui este EAC ilustrativo. Use uma wallet limpa ou conclua a aposentadoria antes de emitir novamente.")
+    throw new Error("The wallet already holds this illustrative EAC. Use a clean wallet or complete retirement before issuing again.")
   }
 
   const result = await provider
@@ -90,7 +90,6 @@ export const buildEacMintTx = async (params: EacMintBuildParams): Promise<TxBuil
       recipientAddress: params.recipientAddress,
       tokenName: EAC_ASSET_NAME,
       amount: EAC_ISSUANCE_AMOUNT.toString(),
-      displayedAmount: "12.088,322 EAC",
       assetNameHex,
       policyId: policyIdHex,
       policyScriptCbor: NativeScripts.toCBORHex(mintPolicy),
@@ -125,7 +124,7 @@ export const buildEacRetirementTx = async (params: EacRetireBuildParams): Promis
   })
   const existingBalance = await eacBalanceOf(provider, userAddress, policyIdHex, assetNameHex)
   if (existingBalance !== EAC_ISSUANCE_AMOUNT) {
-    throw new Error(`A aposentadoria exige saldo indexado de ${EAC_ISSUANCE_AMOUNT}; saldo localizado: ${existingBalance}`)
+    throw eacRetirementIndexedAmountError(existingBalance)
   }
 
   const result = await provider
@@ -171,6 +170,9 @@ export const buildEacRetirementTx = async (params: EacRetireBuildParams): Promis
     },
   }
 }
+
+export const eacRetirementIndexedAmountError = (locatedAmount: bigint): Error =>
+  new Error(`Retirement requires exactly ${EAC_ISSUANCE_AMOUNT} indexed EAC units; located: ${locatedAmount}`)
 
 const eacBalanceOf = async (
   provider: ReturnType<ReturnType<typeof Client.make>["withBlockfrost"]>,

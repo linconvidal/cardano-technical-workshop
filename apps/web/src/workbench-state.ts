@@ -1,3 +1,4 @@
+import { messageRef, type MessageRef } from "../../../packages/localization/src/index.js"
 import { fingerprint } from "./flow-fingerprint.js"
 
 export type FlowStage =
@@ -14,8 +15,8 @@ export type FlowAction = "build" | "sign" | "merge" | "submit" | "check"
 
 export type FlowError = {
   action: FlowAction
-  message: string
-  guidance: string
+  message: MessageRef
+  guidance: MessageRef
   technicalDetail?: string
   retryable: boolean
 }
@@ -43,7 +44,7 @@ export type FlowState = {
   inclusion?: Inclusion
   busyAction?: FlowAction
   error?: FlowError
-  notice?: string
+  notice?: MessageRef
   unknownStatusChecked?: boolean
 }
 
@@ -60,6 +61,25 @@ export const createFlowState = (requiredWitnesses = 1): FlowState => ({
   },
 })
 
+export const stageDerivedNotice = (state: FlowState): MessageRef => {
+  const supplied = state.artifacts.witnesses.filter(Boolean).length
+  switch (state.stage) {
+    case "draft": return messageRef("flow.status.draft")
+    case "built": return messageRef("flow.notice.built")
+    case "partially-signed": return messageRef("flow.notice.witnessesPartial", {
+      supplied,
+      required: state.requiredWitnesses,
+    })
+    case "signed": return messageRef("flow.notice.witnessesComplete")
+    case "merged": return messageRef("flow.notice.merged")
+    case "submission-unknown": return messageRef("flow.notice.submissionUnknown")
+    case "submitted": return messageRef("flow.notice.submitted")
+    case "included": return messageRef("flow.notice.included", {
+      blockHeight: state.inclusion?.blockHeight ?? 0,
+    })
+  }
+}
+
 export const setBuild = (
   state: FlowState,
   details: string,
@@ -74,7 +94,7 @@ export const setBuild = (
     details,
     unsigned: requireValue(unsigned, "unsigned tx CBOR"),
   },
-  notice: "Transação construída. Confira os detalhes antes de pedir a assinatura.",
+  notice: messageRef("flow.notice.built"),
 })
 
 export const setImportedUnsigned = (state: FlowState, unsigned: string, details = ""): FlowState => {
@@ -89,13 +109,13 @@ export const setImportedUnsigned = (state: FlowState, unsigned: string, details 
       details,
       unsigned: clean,
     },
-    notice: "CBOR importado. Ele ainda precisa ser assinado pela wallet correta.",
+    notice: messageRef("flow.notice.importedUnsigned"),
   }
 }
 
 export const setWitness = (state: FlowState, index: number, witness: string): FlowState => {
-  if (!state.artifacts.unsigned) throw new Error("Construa ou importe o unsigned tx CBOR antes de assinar")
-  if (index < 0 || index >= state.requiredWitnesses) throw new Error("Índice de witness inválido")
+  if (!state.artifacts.unsigned) throw new Error("Build or import the unsigned tx CBOR before signing")
+  if (index < 0 || index >= state.requiredWitnesses) throw new Error("Invalid witness index")
 
   const witnesses = [...state.artifacts.witnesses]
   witnesses[index] = witness.trim()
@@ -111,15 +131,15 @@ export const setWitness = (state: FlowState, index: number, witness: string): Fl
     ...next,
     stage: supplied >= state.requiredWitnesses ? "signed" : supplied > 0 ? "partially-signed" : "built",
     notice: supplied >= state.requiredWitnesses
-      ? "Todas as assinaturas necessárias estão disponíveis."
-      : `${supplied} de ${state.requiredWitnesses} assinaturas disponíveis.`,
+      ? messageRef("flow.notice.witnessesComplete")
+      : messageRef("flow.notice.witnessesPartial", { supplied, required: state.requiredWitnesses }),
   }
 }
 
 export const setMerged = (state: FlowState, signed: string): FlowState => {
   const supplied = state.artifacts.witnesses.filter(Boolean).length
   if (supplied < state.requiredWitnesses) {
-    throw new Error(`Ainda faltam ${state.requiredWitnesses - supplied} witness sets`)
+    throw new Error(`Still missing ${state.requiredWitnesses - supplied} witness sets`)
   }
 
   return {
@@ -134,7 +154,7 @@ export const setMerged = (state: FlowState, signed: string): FlowState => {
     inclusion: undefined,
     error: undefined,
     busyAction: undefined,
-    notice: "Witnesses anexados. Revise o efeito antes de submeter.",
+    notice: messageRef("flow.notice.merged"),
   }
 }
 
@@ -152,7 +172,7 @@ export const prepareSubmission = (state: FlowState, txHash: string): FlowState =
   inclusion: undefined,
   error: undefined,
   unknownStatusChecked: false,
-  notice: "Hash calculado localmente. A resposta da submissão ainda é desconhecida.",
+  notice: messageRef("flow.notice.submissionUnknown"),
 })
 
 export const setSubmitted = (state: FlowState, txHash: string): FlowState => ({
@@ -163,7 +183,7 @@ export const setSubmitted = (state: FlowState, txHash: string): FlowState => ({
   error: undefined,
   busyAction: undefined,
   unknownStatusChecked: undefined,
-  notice: "Transação aceita para submissão. A inclusão em bloco ainda precisa ser confirmada.",
+  notice: messageRef("flow.notice.submitted"),
 })
 
 export const setIncluded = (state: FlowState, inclusion: Inclusion): FlowState => ({
@@ -172,13 +192,17 @@ export const setIncluded = (state: FlowState, inclusion: Inclusion): FlowState =
   inclusion,
   error: undefined,
   busyAction: undefined,
-  notice: `Transação incluída no bloco ${inclusion.blockHeight}.`,
+  notice: messageRef("flow.notice.included", { blockHeight: inclusion.blockHeight }),
 })
 
-export const invalidateForInputs = (state: FlowState, inputFingerprint: string, reason: string): FlowState => ({
+export const invalidateForInputs = (
+  state: FlowState,
+  inputFingerprint: string,
+  notice: MessageRef,
+): FlowState => ({
   ...createFlowState(state.requiredWitnesses),
   inputFingerprint,
-  notice: reason,
+  notice,
 })
 
 export const startAction = (state: FlowState, action: FlowAction): FlowState => ({
@@ -233,5 +257,5 @@ const clearFromMerge = (state: FlowState): FlowState => ({
 const requireValue = (value: string, label: string): string => {
   const clean = value.trim()
   if (clean) return clean
-  throw new Error(`Informe ${label}`)
+  throw new Error(`Provide ${label}`)
 }

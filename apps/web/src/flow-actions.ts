@@ -1,3 +1,4 @@
+import { messageRef } from "../../../packages/localization/src/index.js"
 import { getJson, postJson } from "./http.js"
 import {
   finishAction,
@@ -59,7 +60,7 @@ export const runSubmitAction = async (
     postJson<{ txHash: string }>("/api/submit-tx", { signedTxCbor: signed }))
   const { txHash } = await submit(state.artifacts.signed)
   if (state.artifacts.txHash && state.artifacts.txHash !== txHash) {
-    throw new Error(`O backend retornou ${txHash}, mas o signed CBOR calcula ${state.artifacts.txHash}`)
+    throw new Error(`backend_tx_hash_mismatch: returned=${txHash} calculated=${state.artifacts.txHash}`)
   }
   return setSubmitted(state, txHash)
 }
@@ -76,6 +77,6 @@ export const runCheckAction = async (
   return {
     ...finishAction(state),
     unknownStatusChecked: state.stage === "submission-unknown" ? true : state.unknownStatusChecked,
-    notice: "O Blockfrost ainda não indexa este hash. Isso não confirma nem rejeita a submissão. Aguarde e verifique novamente.",
+    notice: messageRef("flow.notice.notIndexed"),
   }
 }

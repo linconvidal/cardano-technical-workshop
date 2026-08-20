@@ -73,13 +73,13 @@ test("inspects imported unlock from the CBOR itself", () => {
 test("rejects undisclosed effects in an imported unlock", () => {
   assert.throws(
     () => inspectMultisigUnlock(makeUnlock(true, 1_000_000n).cbor),
-    /efeitos.*fora do unlock/i,
+    /undisclosed_effects/,
   )
 })
 
 test("rejects an imported transaction without the reviewed 2-de-2 script", () => {
   assert.throws(
     () => inspectMultisigUnlock(makeUnlock(false).cbor),
-    /script nativo 2-de-2/,
+    /requires_one_2_of_2_native_script/,
   )
 })

@@ -74,7 +74,7 @@ test("merge enforces the reviewed signer when the body has no requiredSigners fi
   const unrelated = signBody(unsigned.body, PrivateKey.fromBytes(PrivateKey.generate()))
 
   assert.doesNotThrow(() => mergeWitnesses(unsigned.cbor, [expected.cbor], [expected.hash]))
-  assert.throws(() => mergeWitnesses(unsigned.cbor, [unrelated.cbor], [expected.hash]), /Faltam assinaturas/)
+  assert.throws(() => mergeWitnesses(unsigned.cbor, [unrelated.cbor], [expected.hash]), /missing_signer_witnesses/)
 })
 
 test("merge derives required signer membership from the transaction body", () => {
@@ -87,7 +87,7 @@ test("merge derives required signer membership from the transaction body", () =>
   const unrelated = signBody(unsigned.body, PrivateKey.fromBytes(PrivateKey.generate()))
 
   assert.doesNotThrow(() => mergeWitnesses(unsigned.cbor, [signerA.cbor, signerB.cbor]))
-  assert.throws(() => mergeWitnesses(unsigned.cbor, [signerA.cbor, unrelated.cbor]), /Faltam assinaturas/)
+  assert.throws(() => mergeWitnesses(unsigned.cbor, [signerA.cbor, unrelated.cbor]), /missing_signer_witnesses/)
 })
 
 test("merge rejects duplicate, missing, and wrong-body signatures", () => {
@@ -100,17 +100,17 @@ test("merge rejects duplicate, missing, and wrong-body signatures", () => {
 
   assert.throws(
     () => mergeWitnesses(unsigned.cbor, [signerA.cbor, signerA.cbor], [signerA.hash, signerB.hash]),
-    /Assinatura duplicada/,
+    /duplicate_signer_witness/,
   )
   assert.throws(
     () => mergeWitnesses(unsigned.cbor, [signerA.cbor], [signerA.hash, signerB.hash]),
-    /Faltam assinaturas/,
+    /missing_signer_witnesses/,
   )
 
   const other = makeUnsigned(170_001n, requiredSigners)
   const wrongBodyWitness = signBody(other.body, signerAKey)
   assert.throws(
     () => mergeWitnesses(unsigned.cbor, [wrongBodyWitness.cbor]),
-    /Assinatura inválida/,
+    /invalid_signer_signature/,
   )
 })

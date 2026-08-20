@@ -2,6 +2,8 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { Address, KeyHash } from "@evolution-sdk/evolution"
+import { formatMessage } from "../../../packages/localization/src/index.js"
+import { MessageError } from "./flow-errors.js"
 
 import {
   ensureEacTransactionValidity,
@@ -20,7 +22,8 @@ test("wallet membership is checked before signing a multisig unlock", () => {
   assert.doesNotThrow(() => ensureWalletIsRequiredSigner({ requiredSigners: [KeyHash.toHex(signerHash)] }, signerAddress))
   assert.throws(
     () => ensureWalletIsRequiredSigner({ requiredSigners: [KeyHash.toHex(signerHash)] }, unrelatedAddress),
-    /não pertence aos required signers/,
+    (error) => error instanceof MessageError &&
+      formatMessage(error.messageRef, "en").includes("not one of the required signers"),
   )
 })
 
@@ -29,7 +32,8 @@ test("EAC validity expires the transaction without describing the stable policy 
   assert.doesNotThrow(() => ensureEacTransactionValidity({ transaction: { ttlUnixMs: String(now + 31_000) } }, now))
   assert.throws(
     () => ensureEacTransactionValidity({ transaction: { ttlUnixMs: String(now + 30_000) } }, now),
-    /janela de validade da transação EAC.*expirou/i,
+    (error) => error instanceof MessageError && error.code === "eac_transaction_expired" &&
+      /transação EAC expirou/i.test(formatMessage(error.messageRef, "pt-BR")),
   )
 })
 
@@ -38,7 +42,11 @@ test("mint validity requires enough time to sign and submit", () => {
   assert.doesNotThrow(() => ensureMintValidity({ transaction: { ttlUnixMs: String(now + 31_000) } }, now))
   assert.throws(
     () => ensureMintValidity({ transaction: { ttlUnixMs: String(now + 30_000) } }, now),
-    /validade da policy.*expirou/i,
+    (error) => error instanceof MessageError && error.code === "mint_transaction_expired" &&
+      /mint policy validity expired/i.test(formatMessage(error.messageRef, "en")),
   )
-  assert.throws(() => ensureMintValidity(undefined, now), /validade da policy/i)
+  assert.throws(
+    () => ensureMintValidity(undefined, now),
+    (error) => error instanceof MessageError && error.code === "mint_transaction_expired",
+  )
 })

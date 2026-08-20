@@ -1,7 +1,9 @@
 import { Address, KeyHash } from "@evolution-sdk/evolution"
 
 import { expectKeyHash } from "../../../packages/cardano/src/internal/addresses.js"
+import { messageRef, type Locale } from "../../../packages/localization/src/index.js"
 import { FlowController } from "./flow-controller.js"
+import { MessageError } from "./flow-errors.js"
 import type { FlowReadiness } from "./flow-renderer.js"
 import { postJson } from "./http.js"
 import { inspectMultisigUnlock } from "./multisig-inspection.js"
@@ -25,6 +27,7 @@ export type WorkbenchFlowDependencies = {
   multisigLockReadiness: () => FlowReadiness
   scriptSpendReadiness: () => FlowReadiness
   multisigSetupReady: () => boolean
+  locale: () => Locale
   onChange: () => void
   log: WorkbenchLogger
 }
@@ -39,7 +42,7 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
   return {
     payment: new FlowController({
       id: "payment",
-      title: "Pagamento simples",
+      title: messageRef("flow.title.payment"),
       witnessIds: ["paymentWitness"],
       inputSelectors: ["#paymentRecipient", "#paymentLovelace"],
       build: () => buildTx("/api/workshop/01-payment", {
@@ -51,14 +54,15 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       validateBeforeSign: (details) => ensureWalletMatchesAddress(details, dependencies.wallet().address),
       expectedSignerHashes: userAddressSigner,
       review: paymentReview,
-      completion: "Pagamento concluído: a transação está incluída em um bloco da Preprod. Confira destino, valor e taxa no Cardanoscan.",
+      completion: messageRef("flow.completion.payment"),
+      locale: dependencies.locale,
       readiness: dependencies.fundedReadiness,
       onChange: dependencies.onChange,
       log: dependencies.log,
     }),
     metadata: new FlowController({
       id: "metadata",
-      title: "Pagamento com metadata",
+      title: messageRef("flow.title.metadata"),
       witnessIds: ["metadataWitness"],
       inputSelectors: ["#metadataRecipient", "#metadataLovelace", "#metadataMessage"],
       build: () => buildTx("/api/workshop/02-metadata", {
@@ -71,14 +75,15 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       validateBeforeSign: (details) => ensureWalletMatchesAddress(details, dependencies.wallet().address),
       expectedSignerHashes: userAddressSigner,
       review: metadataReview,
-      completion: "Metadata concluída: a transação está incluída. Abra o Cardanoscan e localize o label 674 e a mensagem publicada.",
+      completion: messageRef("flow.completion.metadata"),
+      locale: dependencies.locale,
       readiness: dependencies.fundedReadiness,
       onChange: dependencies.onChange,
       log: dependencies.log,
     }),
     multisigLock: new FlowController({
       id: "multisigLock",
-      title: "Multisig lock",
+      title: messageRef("flow.title.multisigLock"),
       witnessIds: ["multisigLockWitness"],
       inputSelectors: ["#multisigSecondSigner", "#multisigLockLovelace"],
       build: () => buildTx("/api/workshop/03-multisig/lock", {
@@ -93,14 +98,15 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       validateBeforeSubmit: () => ensureMultisigSetupReady(dependencies.multisigSetupReady()),
       expectedSignerHashes: firstSignerAddressSigner,
       review: multisigLockReview,
-      completion: "Lock incluído: agora use “Listar UTxOs do script”. Se o UTxO ainda não aparecer, aguarde a indexação e tente novamente.",
+      completion: messageRef("flow.completion.multisigLock"),
+      locale: dependencies.locale,
       readiness: dependencies.multisigLockReadiness,
       onChange: dependencies.onChange,
       log: dependencies.log,
     }),
     multisigUnlock: new FlowController({
       id: "multisigUnlock",
-      title: "Multisig unlock",
+      title: messageRef("flow.title.multisigUnlock"),
       witnessIds: ["multisigUnlockWitnessA", "multisigUnlockWitnessB"],
       inputSelectors: ["#multisigSecondSigner", "#multisigDestination", "#multisigUnlockLovelace", "#multisigScriptUtxo"],
       editableUnsigned: true,
@@ -120,7 +126,8 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       sign,
       validateBeforeSign: (details) => verifyUnlockSigningContext(details, dependencies.wallet().address),
       review: multisigUnlockReview,
-      completion: "Rodada de unlock incluída: o UTxO escolhido foi consumido e o valor saiu para o destino, mas o troco continua bloqueado no script. Para recuperar mais tADA, reinicie somente o unlock, liste o novo UTxO e repita com as duas wallets.",
+      completion: messageRef("flow.completion.multisigUnlock"),
+      locale: dependencies.locale,
       expectedSignerHashes: requiredSigners,
       readiness: dependencies.scriptSpendReadiness,
       onChange: dependencies.onChange,
@@ -128,7 +135,7 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
     }),
     eacMint: new FlowController({
       id: "eacMint",
-      title: "Emissão EAC com metadata raw",
+      title: messageRef("flow.title.eacMint"),
       witnessIds: ["eacMintWitness"],
       inputSelectors: ["#eacMintRecipient", "#eacMintMetadataJson"],
       build: () => buildTx("/api/workshop/04a-mint-eac", {
@@ -144,14 +151,15 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       validateBeforeSubmit: ensureEacTransactionValidity,
       expectedSignerHashes: mintSigner,
       review: eacMintReview,
-      completion: "Emissão ilustrativa incluída: confira 12088322 unidades no campo mint e aguarde a indexação antes de construir a aposentadoria.",
+      completion: messageRef("flow.completion.eacMint"),
+      locale: dependencies.locale,
       readiness: dependencies.fundedReadiness,
       onChange: dependencies.onChange,
       log: dependencies.log,
     }),
     eacRetire: new FlowController({
       id: "eacRetire",
-      title: "Aposentadoria EAC com burn",
+      title: messageRef("flow.title.eacRetire"),
       witnessIds: ["eacRetireWitness"],
       inputSelectors: ["#eacRetireMetadataJson"],
       build: () => buildTx("/api/workshop/04a-retire-eac", {
@@ -166,14 +174,15 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       validateBeforeSubmit: ensureEacTransactionValidity,
       expectedSignerHashes: mintSigner,
       review: eacRetireReview,
-      completion: "Aposentadoria incluída: confira burn de -125000 e saldo restante de 11963322 unidades no output da wallet.",
+      completion: messageRef("flow.completion.eacRetire"),
+      locale: dependencies.locale,
       readiness: dependencies.eacRetirementReadiness,
       onChange: dependencies.onChange,
       log: dependencies.log,
     }),
     mint: new FlowController({
       id: "mint",
-      title: "Native Asset CIP-25",
+      title: messageRef("flow.title.mint"),
       witnessIds: ["mintWitness"],
       inputSelectors: ["#mintRecipient", "#mintTokenName", "#mintAmount", "#mintMetadataName", "#mintImage", "#mintDescription"],
       build: () => buildTx("/api/workshop/04b-mint-cip25", {
@@ -193,7 +202,8 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       validateBeforeSubmit: ensureMintValidity,
       expectedSignerHashes: mintSigner,
       review: mintReview,
-      completion: "Mint concluído: a transação está incluída. Confira policy id, asset name, quantidade e metadata 721 no Cardanoscan.",
+      completion: messageRef("flow.completion.mint"),
+      locale: dependencies.locale,
       readiness: dependencies.fundedReadiness,
       onChange: dependencies.onChange,
       log: dependencies.log,
@@ -228,7 +238,10 @@ const requiredSigners = (details: Record<string, unknown> | undefined): Readonly
 }
 
 const ensureMultisigSetupReady = (ready: boolean) => {
-  if (!ready) throw new Error("Gere e confirme novamente o setup multisig antes de continuar")
+  if (!ready) throw new MessageError(
+    "multisig_setup_required",
+    messageRef("multisig.error.setupRequired"),
+  )
 }
 
 const ensureWalletMatchesAddress = (
@@ -238,7 +251,7 @@ const ensureWalletMatchesAddress = (
 ) => {
   const expectedAddress = details?.[field]
   if (typeof expectedAddress !== "string" || paymentKeyHash(expectedAddress) !== paymentKeyHash(walletAddress)) {
-    throw new Error("A wallet conectada não corresponde à chave que construiu esta transação")
+    throw new MessageError("wallet_mismatch", messageRef("multisig.error.walletMismatch"))
   }
 }
 
@@ -250,7 +263,7 @@ const verifyUnlockSigningContext = async (
   const scriptAddress = details?.scriptAddress
   const scriptUtxo = details?.selectedScriptUtxo
   if (typeof scriptAddress !== "string" || typeof scriptUtxo !== "string") {
-    throw new Error("O CBOR não informa script address e UTxO para verificação")
+    throw new MessageError("multisig_context_missing", messageRef("multisig.error.contextMissing"))
   }
   await postJson("/api/workshop/03-multisig/verify-input", { scriptAddress, scriptUtxo })
 }
@@ -261,7 +274,7 @@ export const ensureWalletIsRequiredSigner = (
 ) => {
   const signers = requiredSigners(details)
   if (!signers?.includes(paymentKeyHash(walletAddress))) {
-    throw new Error("A wallet conectada não pertence aos required signers deste unlock")
+    throw new MessageError("wallet_not_required_signer", messageRef("multisig.error.notRequiredSigner"))
   }
 }
 
@@ -271,7 +284,12 @@ const paymentKeyHash = (bech32: string): string =>
 export const ensureMintValidity = (details: Record<string, unknown> | undefined, now = Date.now()) => {
   const expiresAt = transactionExpiry(details)
   if (Number.isFinite(expiresAt) && expiresAt > now + 30_000) return
-  throw new Error("A validade da policy do mint expirou ou está próxima do fim")
+  throw new MessageError(
+    "mint_transaction_expired",
+    messageRef("flow.error.mintExpired.message"),
+    messageRef("flow.error.mintExpired.guidance"),
+    false,
+  )
 }
 
 export const ensureEacTransactionValidity = (
@@ -280,7 +298,12 @@ export const ensureEacTransactionValidity = (
 ) => {
   const expiresAt = transactionExpiry(details)
   if (Number.isFinite(expiresAt) && expiresAt > now + 30_000) return
-  throw new Error("A janela de validade da transação EAC expirou ou está próxima do fim")
+  throw new MessageError(
+    "eac_transaction_expired",
+    messageRef("flow.error.eacExpired.message"),
+    messageRef("flow.error.eacExpired.guidance"),
+    false,
+  )
 }
 
 const transactionExpiry = (details: Record<string, unknown> | undefined): number => Number(

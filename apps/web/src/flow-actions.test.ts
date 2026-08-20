@@ -35,7 +35,7 @@ test("pending inclusion keeps the deterministic hash and unknown submission stat
   assert.equal(state.stage, "submission-unknown")
   assert.equal(state.artifacts.txHash, expectedHash)
   assert.equal(state.unknownStatusChecked, true)
-  assert.match(state.notice ?? "", /não confirma nem rejeita/)
+  assert.deepEqual(state.notice, { key: "flow.notice.notIndexed", values: {} })
 })
 
 test("successful response must match the hash calculated from signed CBOR", async () => {
@@ -43,7 +43,7 @@ test("successful response must match the hash calculated from signed CBOR", asyn
     () => runSubmitAction(preparedState(), dependencies({
       submit: async () => ({ txHash: "b".repeat(64) }),
     })),
-    /signed CBOR calcula/,
+    /backend_tx_hash_mismatch/,
   )
 
   const submitted = await runSubmitAction(preparedState(), dependencies({

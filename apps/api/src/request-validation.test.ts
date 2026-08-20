@@ -14,7 +14,8 @@ import {
   TxOut,
 } from "@evolution-sdk/evolution"
 
-import { RequestValidationError } from "./api-error.js"
+import { resolveLocale } from "../../../packages/localization/src/index.js"
+import { localizeApiProblem, RequestValidationError } from "./api-error.js"
 import {
   parseEacMintRequest,
   parseEacRetireRequest,
@@ -34,6 +35,33 @@ const keyAddress = (keyByte: string, networkId = 0, stakeByte?: string) => Addre
 test("missing request bodies produce a structured validation error", () => {
   assert.throws(() => parsePaymentRequest(), RequestValidationError)
   assert.throws(() => parseSubmitTxRequest(), RequestValidationError)
+})
+
+test("validation errors retain stable references and localize with Portuguese fallback", () => {
+  let validationError: RequestValidationError | undefined
+  try {
+    parsePaymentRequest()
+  } catch (error) {
+    if (error instanceof RequestValidationError) validationError = error
+  }
+  assert.ok(validationError)
+
+  const portuguese = localizeApiProblem(validationError.problem, resolveLocale())
+  assert.equal(portuguese.message, "Campo obrigatório ou inválido: userAddress")
+  assert.equal(portuguese.messageKey, "api.validation.required")
+  assert.deepEqual(portuguese.messageValues, { field: "userAddress" })
+  assert.equal(portuguese.code, "invalid_request")
+  assert.equal(portuguese.field, "userAddress")
+  assert.equal(portuguese.retryable, false)
+
+  const english = localizeApiProblem(validationError.problem, resolveLocale("en-US"))
+  assert.equal(english.message, "Required or invalid field: userAddress")
+  assert.equal(english.messageKey, portuguese.messageKey)
+  assert.deepEqual(english.messageValues, portuguese.messageValues)
+
+  const unsupported = localizeApiProblem(validationError.problem, resolveLocale("fr-FR"))
+  assert.equal(unsupported.message, portuguese.message)
+  assert.equal(unsupported.messageKey, portuguese.messageKey)
 })
 
 test("parses a positive payment request on testnet", () => {

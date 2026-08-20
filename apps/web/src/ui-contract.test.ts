@@ -2,6 +2,11 @@ import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import test from "node:test"
 
+import {
+  englishStaticMessages,
+  portugueseStaticMessages,
+} from "../../../packages/localization/src/catalogs/static.js"
+
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8")
 const server = readFileSync(new URL("../../api/src/server.ts", import.meta.url), "utf8")
 const styles = readFileSync(new URL("./styles.css", import.meta.url), "utf8")
@@ -35,6 +40,91 @@ test("multisig, EAC raw mint, and CIP-25 mint appear in order", () => {
 
   const editableTargets = [...html.matchAll(/<artifact-box[^>]*target="([^"]+)"[^>]*editable/g)].map((match) => match[1])
   assert.deepEqual(editableTargets, ["multisigUnlockUnsigned", "multisigUnlockWitnessB"])
+})
+
+test("hero exposes one keyboard-accessible bilingual selector with Portuguese fallback", () => {
+  const hero = html.slice(html.indexOf("<header class=\"hero\">"), html.indexOf("</header>"))
+  assert.equal((html.match(/id="languageSelector"/g) ?? []).length, 1)
+  assert.match(hero, /<label for="languageSelector"[^>]*>Idioma<\/label>/)
+  assert.match(hero, /<select[\s\S]*id="languageSelector"[\s\S]*name="language"[\s\S]*aria-label="Idioma"/)
+  assert.equal((hero.match(/<option value="pt-BR"[^>]*selected>Português<\/option>/g) ?? []).length, 1)
+  assert.equal((hero.match(/<option value="en"[^>]*>English<\/option>/g) ?? []).length, 1)
+  assert.match(html, /^<!doctype html>\s*<html lang="pt-BR">/)
+  assert.match(styles, /\.language-selector\s*\{[\s\S]*max-width: 280px;[\s\S]*width: 100%;/)
+  assert.match(styles, /\.language-selector select\s*\{[\s\S]*min-width: 0;/)
+})
+
+test("declarative localization keys exist in parity across both static catalogs", () => {
+  const portugueseKeys = Object.keys(portugueseStaticMessages).sort()
+  const englishKeys = Object.keys(englishStaticMessages).sort()
+  assert.deepEqual(englishKeys, portugueseKeys)
+
+  const referencedKeys = [
+    ...html.matchAll(/\sdata-i18n="([^"]+)"/g),
+  ].map((match) => match[1])
+  for (const declaration of html.matchAll(/\sdata-i18n-(?:attr|attributes)="([^"]+)"/g)) {
+    for (const mapping of declaration[1].split(/[;,]/)) {
+      const separator = mapping.indexOf(":")
+      referencedKeys.push((separator < 0 ? mapping : mapping.slice(separator + 1)).trim())
+    }
+  }
+
+  assert.ok(referencedKeys.length > 300)
+  for (const key of referencedKeys) {
+    assert.ok(key in portugueseStaticMessages, `Portuguese static key ${key} must exist`)
+    assert.ok(key in englishStaticMessages, `English static key ${key} must exist`)
+  }
+})
+
+test("translatable static attributes and artifact fallbacks expose stable mappings", () => {
+  for (const tag of html.matchAll(/<[^>]+aria-label="[^"]+"[^>]*>/g)) {
+    assert.match(tag[0], /data-i18n-(?:attr|attributes)="[^"]*aria-label:/)
+  }
+  for (const tag of html.matchAll(/<(?:input|textarea)[^>]+placeholder="[^"]+"[^>]*>/g)) {
+    assert.match(tag[0], /data-i18n-(?:attr|attributes)="[^"]*placeholder:/)
+  }
+
+  const artifacts = [...html.matchAll(/<artifact-box\b[^>]*>/g)].map((match) => match[0])
+  assert.equal(artifacts.length, 38)
+  for (const artifact of artifacts) {
+    const title = artifact.match(/title="([^"]+)"/)?.[1]
+    const description = artifact.match(/description="([^"]+)"/)?.[1]
+    const mapping = artifact.match(/data-i18n-(?:attr|attributes)="([^"]+)"/)?.[1]
+    assert.ok(title && description && mapping)
+    const keys = Object.fromEntries(mapping.split(/[;,]/).map((entry) => entry.split(":", 2)))
+    assert.equal(portugueseStaticMessages[keys.title as keyof typeof portugueseStaticMessages], title)
+    assert.equal(portugueseStaticMessages[keys.description as keyof typeof portugueseStaticMessages], description)
+  }
+})
+
+test("bilingual static surface preserves workshop fixtures and evidence boundary", () => {
+  for (const literal of [
+    "674",
+    "65536",
+    "721",
+    "EAC-BRE-2025P01",
+    "12088322",
+    "125000",
+    "11963322",
+    "12.088,322 EAC",
+    "125,000 EAC",
+    "11.963,322 EAC",
+  ]) {
+    assert.match(html, new RegExp(literal.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
+  }
+  for (const value of ["2000000", "10000000", "MyLittleToken", "My Little Token", "Hello, Cardano!"]) {
+    assert.match(html, new RegExp(`value="${value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}"`))
+  }
+  assert.equal(
+    portugueseStaticMessages["eac.description"],
+    "Execute um exemplo Cardano inspirado no caso Brevik. A quantidade é ilustrativa e não representa a oferta alocável publicada pela Heidelberg Materials.",
+  )
+  assert.equal(
+    englishStaticMessages["eac.description"],
+    "Run a Cardano example inspired by the Brevik case. The quantity is illustrative and does not represent the allocable supply published by Heidelberg Materials.",
+  )
+  assert.doesNotMatch(html, /\u2014/)
+  assert.doesNotMatch(JSON.stringify(englishStaticMessages), /\u2014/)
 })
 
 test("exercise order uses canonical routes while preserving old aliases", () => {

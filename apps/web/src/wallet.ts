@@ -1,5 +1,7 @@
 import { Address, Client, preprod, TransactionWitnessSet } from "@evolution-sdk/evolution"
 
+import { messageRef, type Locale } from "../../../packages/localization/src/index.js"
+import { MessageError } from "./flow-errors.js"
 import type { Cip30WalletApi } from "./global.js"
 
 export type BrowserWalletClient = {
@@ -22,7 +24,7 @@ export type DiscoveredWallet = {
   icon?: string
 }
 
-export const discoverWallets = (): Array<DiscoveredWallet> => {
+export const discoverWallets = (locale: Locale = "pt-BR"): Array<DiscoveredWallet> => {
   if (!window.cardano) return []
 
   return Object.entries(window.cardano)
@@ -32,17 +34,23 @@ export const discoverWallets = (): Array<DiscoveredWallet> => {
       name: provider.name?.trim() || titleCase(key),
       icon: provider.icon,
     }))
-    .sort((left, right) => left.name.localeCompare(right.name))
+    .sort((left, right) => left.name.localeCompare(right.name, locale))
 }
 
 export const connectWallet = async (providerKey: string): Promise<WalletSession> => {
   const provider = window.cardano?.[providerKey]
-  if (!provider) throw new Error(`Wallet ${providerKey} não encontrada no navegador`)
+  if (!provider) throw new MessageError(
+    "wallet_not_found",
+    messageRef("wallet.error.notFound"),
+    undefined,
+    true,
+    providerKey,
+  )
 
   const api = await provider.enable()
   const networkId = await api.getNetworkId()
   if (networkId !== 0) {
-    throw new Error("A wallet está na mainnet. Selecione Cardano Preprod na extensão e conecte novamente.")
+    throw new MessageError("wallet_on_mainnet", messageRef("wallet.error.mainnet"))
   }
 
   const client = Client.make(preprod).withCip30(api)

@@ -10,6 +10,7 @@ import {
   EAC_REMAINING_AMOUNT,
   EAC_RETIREMENT_AMOUNT,
   eacIssuanceMetadata,
+  eacRetirementIndexedAmountError,
   eacRetirementMetadata,
   makeEacMintPolicy,
 } from "./04a-mint-eac.js"
@@ -61,6 +62,13 @@ test("EAC retirement metadata links declaration and delivery without accounting 
   ])
   assert.equal(metadata.has("action"), false)
   assert.equal(metadata.has("quantity"), false)
+})
+
+test("EAC retirement precondition does not collide with the tADA insufficient-funds classifier", () => {
+  const error = eacRetirementIndexedAmountError(0n)
+
+  assert.match(error.message, /12088322 indexed EAC units/)
+  assert.doesNotMatch(error.message, /insufficient|not enough|balance/i)
 })
 
 test("EAC signer policy is stable and contains no time-dependent script", () => {

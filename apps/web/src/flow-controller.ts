@@ -1,4 +1,10 @@
 import {
+  formatMessage,
+  messageRef,
+  type Locale,
+  type MessageRef,
+} from "../../../packages/localization/src/index.js"
+import {
   runBuildAction,
   runCheckAction,
   runMergeAction,
@@ -30,7 +36,7 @@ import { parseDetails, transactionHashFromCbor } from "./workbench-ui.js"
 
 export type FlowControllerConfig = FlowActionDependencies & {
   id: string
-  title: string
+  title: MessageRef
   witnessIds: ReadonlyArray<string>
   inputSelectors: ReadonlyArray<string>
   editableUnsigned?: boolean
@@ -41,10 +47,11 @@ export type FlowControllerConfig = FlowActionDependencies & {
   signReview?: {
     checkboxId: string
     summaryId: string
-    text: (details: Record<string, unknown> | undefined) => string
+    text: (details: Record<string, unknown> | undefined, locale: Locale) => MessageRef
   }
-  review: (details: Record<string, unknown> | undefined) => string
-  completion: string
+  review: (details: Record<string, unknown> | undefined, locale: Locale) => MessageRef
+  completion: MessageRef
+  locale: () => Locale
   readiness: () => FlowReadiness
   onChange: () => void
   log: WorkbenchLogger
@@ -115,7 +122,7 @@ export class FlowController {
     if (
       askConfirmation &&
       this.state.artifacts.txHash &&
-      !window.confirm("Reiniciar limpa somente o estado local. A transação já submetida continua na Preprod. Continuar?")
+      !window.confirm(formatMessage(messageRef("flow.reset.confirm"), this.config.locale()))
     ) return
 
     this.poller.stop()
@@ -123,18 +130,26 @@ export class FlowController {
     if (this.signAcknowledgement) this.signAcknowledgement.checked = false
     this.state = createFlowState(this.config.witnessIds.length)
     this.retryAction = undefined
-    this.commit(`${this.config.title}: estado local reiniciado.`)
+    this.commit(messageRef("flow.log.reset", { flow: this.config.id }))
   }
 
-  invalidate(reason: string) {
+  invalidate() {
     if (this.state.stage === "draft" && !this.state.artifacts.unsigned) return
     this.poller.stop()
     this.revision += 1
-    this.state = invalidateForInputs(this.state, this.currentInputFingerprint(), reason)
-    this.commit(`${this.config.title}: artefatos anteriores invalidados.`)
+    this.state = invalidateForInputs(
+      this.state,
+      this.currentInputFingerprint(),
+      messageRef("flow.notice.inputsInvalidated"),
+    )
+    this.commit(messageRef("flow.log.invalidated", { flow: this.config.id }))
   }
 
   refreshReadiness() {
+    this.render()
+  }
+
+  rerenderForLocale() {
     this.render()
   }
 
@@ -142,7 +157,7 @@ export class FlowController {
     const details = parseDetails(this.state.artifacts.details)
     const expectedAddress = details?.userAddress ?? details?.firstSignerAddress
     if (typeof expectedAddress === "string" && expectedAddress !== currentAddress) {
-      this.invalidate("A wallet conectada não corresponde à wallet que construiu os artefatos restaurados. Reconstrua a transação.")
+      this.invalidate()
     }
   }
 
@@ -153,17 +168,17 @@ export class FlowController {
     try {
       const details = this.config.inspectImported?.(value)
       this.state = setImportedUnsigned(this.state, value, details ? JSON.stringify(details, null, 2) : "")
-      this.commit(`${this.config.title}: unsigned CBOR importado, inspecionado e pronto para revisão.`)
+      this.commit(messageRef("flow.log.imported", { flow: this.config.id }))
     } catch (error) {
       this.retryAction = undefined
       this.state = failAction(this.state, {
         action: "sign",
-        message: "O unsigned CBOR importado não passou na validação multisig",
-        guidance: "Confirme que recebeu o CBOR de unlock correto e cole novamente. Nenhuma assinatura foi produzida.",
+        message: messageRef("flow.error.invalidImportedMultisig.message"),
+        guidance: messageRef("flow.error.invalidImportedMultisig.guidance"),
         technicalDetail: error instanceof Error ? error.message : String(error),
         retryable: false,
       })
-      this.commit(`${this.config.title}: CBOR importado rejeitado.`, "error")
+      this.commit(messageRef("flow.log.importRejected", { flow: this.config.id }), "error")
       queueMicrotask(() => this.view.alert.focus())
     }
   }
@@ -172,7 +187,7 @@ export class FlowController {
     try {
       this.revision += 1
       this.state = setWitness(this.state, index, value)
-      this.commit(`${this.config.title}: witness recebido atualizado.`)
+      this.commit(messageRef("flow.log.witnessUpdated", { flow: this.config.id }))
     } catch (error) {
       this.fail("merge", error)
     }
@@ -182,13 +197,17 @@ export class FlowController {
     if (!validateFlowInputs(this.config.inputSelectors)) return
     if (this.signAcknowledgement) this.signAcknowledgement.checked = false
     this.poller.stop()
-    this.state = invalidateForInputs(this.state, this.currentInputFingerprint(), "Construindo uma nova transação.")
+    this.state = invalidateForInputs(
+      this.state,
+      this.currentInputFingerprint(),
+      messageRef("flow.notice.buildingNew"),
+    )
     const completed = await this.perform(
       "build",
       (state) => runBuildAction(state, this.config, this.currentInputFingerprint()),
       () => this.build(),
     )
-    if (completed) this.config.log(`${this.config.title}: unsigned transaction construída.`)
+    if (completed) this.config.log(messageRef("flow.log.built", { flow: this.config.id }))
   }
 
   private async sign() {
@@ -197,7 +216,7 @@ export class FlowController {
       await this.config.validateBeforeSign?.(parseDetails(state.artifacts.details))
       return runSignAction(state, this.config)
     }, () => this.sign())
-    if (completed) this.config.log(`${this.config.title}: witness criado pela wallet conectada.`)
+    if (completed) this.config.log(messageRef("flow.log.signed", { flow: this.config.id }))
   }
 
   private async merge() {
@@ -206,7 +225,7 @@ export class FlowController {
       async (state) => runMergeAction(state, this.config),
       () => this.merge(),
     )
-    if (completed) this.config.log(`${this.config.title}: witnesses validados e anexados.`)
+    if (completed) this.config.log(messageRef("flow.log.merged", { flow: this.config.id }))
   }
 
   private async submit() {
@@ -223,7 +242,10 @@ export class FlowController {
       (state) => prepareSubmission(state, transactionHashFromCbor(state.artifacts.signed)),
     )
     if (!completed) return
-    this.config.log(`${this.config.title}: submetida com hash ${this.state.artifacts.txHash}.`)
+    this.config.log(messageRef("flow.log.submitted", {
+      flow: this.config.id,
+      txHash: this.state.artifacts.txHash,
+    }))
     this.poller.schedule(
       () => this.checkStatus(),
       () => this.state.stage === "submitted",
@@ -239,7 +261,10 @@ export class FlowController {
     )
     if (!completed || this.state.stage !== "included") return
     this.poller.stop()
-    this.config.log(`${this.config.title}: incluída no bloco ${this.state.inclusion?.blockHeight}.`)
+    this.config.log(messageRef("flow.log.included", {
+      flow: this.config.id,
+      blockHeight: this.state.inclusion?.blockHeight ?? 0,
+    }))
   }
 
   private async perform(
@@ -252,7 +277,7 @@ export class FlowController {
     const otherBusyFlow = document.querySelector<HTMLElement>('[data-stage][aria-busy="true"]')
     if (otherBusyFlow && otherBusyFlow !== this.view.root) {
       this.retryAction = retry
-      this.fail(action, new Error("Outra etapa da Workbench ainda está em andamento"))
+      this.fail(action, new Error("concurrent_workbench_action"))
       return false
     }
 
@@ -305,7 +330,7 @@ export class FlowController {
     const mappedError = toFlowError(action, error)
     const flowError = forceNonRetryable ? { ...mappedError, retryable: false } : mappedError
     this.state = failAction(this.state, flowError)
-    this.commit(`${this.config.title}: ${flowError.message}`, "error")
+    this.commit(messageRef("flow.log.failed", { flow: this.config.id }), "error")
     queueMicrotask(() => this.view.alert.focus())
   }
 
@@ -317,7 +342,7 @@ export class FlowController {
       this.state = invalidateForInputs(
         this.state,
         fingerprint,
-        "Os campos mudaram. Os artefatos anteriores foram removidos para impedir uma submissão antiga.",
+        messageRef("flow.notice.inputsInvalidated"),
       )
     }
     this.commit()
@@ -338,7 +363,7 @@ export class FlowController {
     }
   }
 
-  private commit(logMessage?: string, level: LogLevel = "info") {
+  private commit(logMessage?: MessageRef, level: LogLevel = "info") {
     if (logMessage) this.config.log(logMessage, level)
     this.render()
     this.config.onChange()
@@ -346,18 +371,20 @@ export class FlowController {
 
   private render() {
     const details = parseDetails(this.state.artifacts.details)
+    const locale = this.config.locale()
     renderFlow(
       this.view,
       this.state,
       this.config.readiness(),
-      this.config.review(details),
+      this.config.review(details, locale),
       this.config.completion,
+      locale,
     )
 
     if (!this.signAcknowledgement || !this.config.signReview || !this.signReviewSummary) return
     const canReview = this.state.stage === "built" || this.state.stage === "partially-signed"
     this.signAcknowledgement.disabled = !canReview
-    this.signReviewSummary.textContent = this.config.signReview.text(details)
+    this.signReviewSummary.textContent = formatMessage(this.config.signReview.text(details, locale), locale)
     if (canReview && !this.signAcknowledgement.checked) this.view.actions.sign.disabled = true
   }
 }

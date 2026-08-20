@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
+import { messageRef } from "../../../packages/localization/src/index.js"
 import { snapshotInputs } from "./flow-fingerprint.js"
 import {
   canRun,
@@ -65,7 +66,7 @@ test("input mutation clears every stale downstream artifact", () => {
   state = setMerged(state, "signed")
   state = setAcknowledged(state, true)
 
-  const invalidated = invalidateForInputs(state, "new-inputs", "Campos alterados")
+  const invalidated = invalidateForInputs(state, "new-inputs", messageRef("flow.notice.inputsInvalidated"))
   assert.equal(invalidated.stage, "draft")
   assert.deepEqual(invalidated.artifacts, {
     details: "",
@@ -82,8 +83,8 @@ test("failed actions preserve the last stable checkpoint", () => {
   const busy = startAction(built, "sign")
   const failed = failAction(busy, {
     action: "sign",
-    message: "Assinatura recusada",
-    guidance: "Tente novamente.",
+    message: messageRef("flow.error.sign.message"),
+    guidance: messageRef("flow.guidance.sign"),
     retryable: true,
   })
 
@@ -108,8 +109,8 @@ test("session serialization clears transient busy and error state", () => {
   const inputs = { paymentRecipient: "addr_test" }
   const flow = failAction(startAction(setBuild(createFlowState(), "d", "u", "i"), "sign"), {
     action: "sign",
-    message: "failure",
-    guidance: "retry",
+    message: messageRef("flow.error.generic.message"),
+    guidance: messageRef("flow.guidance.sign"),
     retryable: true,
   })
   const raw = serializeSession(inputs, { payment: flow })

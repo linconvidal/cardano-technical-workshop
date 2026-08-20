@@ -1,3 +1,10 @@
+import {
+  formatMessage,
+  messageRef,
+  type Locale,
+  type MessageKey,
+  type MessageRef,
+} from "../../../packages/localization/src/index.js"
 import { canRun, isAcknowledged, type FlowAction, type FlowState } from "./workbench-state.js"
 import { select, selectWithin, setVisible } from "./workbench-ui.js"
 
@@ -62,8 +69,9 @@ export const renderFlow = (
   view: FlowView,
   state: FlowState,
   readiness: FlowReadiness,
-  reviewText: string,
-  completionText: string,
+  review: MessageRef,
+  completion: MessageRef,
+  locale: Locale,
 ) => {
   view.root.dataset.stage = state.stage
   view.root.setAttribute("aria-busy", state.busyAction ? "true" : "false")
@@ -75,9 +83,11 @@ export const renderFlow = (
 
   view.acknowledge.disabled = state.stage !== "merged" && state.stage !== "submission-unknown"
   view.acknowledge.checked = isAcknowledged(state)
-  view.review.textContent = reviewText
+  view.review.textContent = formatMessage(review, locale)
   view.retry.hidden = !state.error?.retryable
-  view.retry.textContent = state.stage === "submission-unknown" ? "Verificar inclusão" : "Tentar novamente"
+  view.retry.textContent = formatMessage(messageRef(
+    state.stage === "submission-unknown" ? "flow.action.checkInclusion" : "flow.action.retry",
+  ), locale)
   view.retry.disabled = Boolean(state.busyAction)
   view.reset.hidden = state.stage === "draft" && !state.error
   view.reset.disabled = Boolean(state.busyAction)
@@ -88,16 +98,19 @@ export const renderFlow = (
   view.signed.value = state.artifacts.signed
   view.txHash.value = state.artifacts.txHash
 
-  view.status.textContent = statusText(state)
+  view.status.textContent = statusText(state, locale)
   setVisible(view.alert, Boolean(state.error))
   if (state.error) {
-    view.alertMessage.textContent = state.error.message
-    view.alertGuidance.textContent = state.error.guidance
-    view.alertTechnical.textContent = state.error.technicalDetail ?? "Sem detalhe técnico adicional."
+    view.alertMessage.textContent = formatMessage(state.error.message, locale)
+    view.alertGuidance.textContent = formatMessage(state.error.guidance, locale)
+    view.alertTechnical.textContent = state.error.technicalDetail ?? formatMessage(
+      messageRef("flow.error.noTechnicalDetail"),
+      locale,
+    )
   }
 
   setVisible(view.completion, state.stage === "included")
-  if (state.stage === "included") view.completion.textContent = completionText
+  if (state.stage === "included") view.completion.textContent = formatMessage(completion, locale)
 
   const hasHash = Boolean(state.artifacts.txHash)
   view.explorer.href = hasHash
@@ -132,27 +145,31 @@ const completedActionCount = (state: FlowState): number => {
   }
 }
 
-const statusText = (state: FlowState): string => {
-  if (state.busyAction) return busyText(state.busyAction)
-  if (state.error) return `A etapa falhou. ${state.error.guidance}`
-  if (state.notice) return state.notice
-
-  switch (state.stage) {
-    case "draft": return "Próximo passo: preencha os campos e construa a transação."
-    case "built": return "Próximo passo: confira o unsigned CBOR e peça a assinatura da wallet."
-    case "partially-signed": return "Próximo passo: obtenha o witness que ainda falta."
-    case "signed": return "Próximo passo: anexe os witnesses à transação."
-    case "merged": return "Próximo passo: revise o efeito, confirme a ciência e submeta na Preprod."
-    case "submission-unknown": return "O hash foi calculado, mas o resultado da submissão é desconhecido. Verifique a inclusão antes de reconstruir."
-    case "submitted": return "Próximo passo: aguarde a indexação ou verifique novamente."
-    case "included": return "Concluído: a transação foi incluída em um bloco da Preprod."
+const statusText = (state: FlowState, locale: Locale): string => {
+  if (state.busyAction) return formatMessage(messageRef(busyKeys[state.busyAction]), locale)
+  if (state.error) {
+    const guidance = formatMessage(state.error.guidance, locale)
+    return formatMessage(messageRef("flow.status.failed", { guidance }), locale)
   }
+  if (state.notice) return formatMessage(state.notice, locale)
+
+  const statusKeys = {
+    draft: "flow.status.draft",
+    built: "flow.status.built",
+    "partially-signed": "flow.status.partiallySigned",
+    signed: "flow.status.signed",
+    merged: "flow.status.merged",
+    "submission-unknown": "flow.status.submissionUnknown",
+    submitted: "flow.status.submitted",
+    included: "flow.status.included",
+  } as const satisfies Record<FlowState["stage"], MessageKey>
+  return formatMessage(messageRef(statusKeys[state.stage]), locale)
 }
 
-const busyText = (action: FlowAction): string => ({
-  build: "Construindo a transação com o estado atual da Preprod...",
-  sign: "Aguardando a decisão na extensão da wallet...",
-  merge: "Validando e anexando os witnesses...",
-  submit: "Submetendo a transação assinada à Preprod...",
-  check: "Verificando a inclusão da transação...",
-})[action]
+const busyKeys = {
+  build: "flow.busy.build",
+  sign: "flow.busy.sign",
+  merge: "flow.busy.merge",
+  submit: "flow.busy.submit",
+  check: "flow.busy.check",
+} as const satisfies Record<FlowAction, MessageKey>
