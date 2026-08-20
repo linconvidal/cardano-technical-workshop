@@ -6,6 +6,7 @@ import {
   type MessageKey,
   type MessageRef,
 } from "../../../packages/localization/src/index.js"
+import { hydrateExerciseLayouts } from "./exercise-layout.js"
 import { MessageError } from "./flow-errors.js"
 import { createLocaleSelector, LocaleController } from "./locale-controller.js"
 import { MultisigSetupController } from "./multisig-setup.js"
@@ -29,6 +30,7 @@ import { connectWallet, type WalletSession } from "./wallet.js"
 
 const localeController = new LocaleController()
 hydrateArtifactBoxes(localeController.locale)
+hydrateExerciseLayouts()
 createLocaleSelector(localeController)
 
 const walletNameInput = select<HTMLSelectElement>("#walletName")

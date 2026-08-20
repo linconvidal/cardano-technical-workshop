@@ -42,16 +42,16 @@ test("multisig, EAC raw mint, and CIP-25 mint appear in order", () => {
   assert.deepEqual(editableTargets, ["multisigUnlockUnsigned", "multisigUnlockWitnessB"])
 })
 
-test("hero exposes one keyboard-accessible bilingual selector with Portuguese fallback", () => {
+test("hero exposes one compact keyboard-accessible bilingual selector with Portuguese fallback", () => {
   const hero = html.slice(html.indexOf("<header class=\"hero\">"), html.indexOf("</header>"))
   assert.equal((html.match(/id="languageSelector"/g) ?? []).length, 1)
-  assert.match(hero, /<label for="languageSelector"[^>]*>Idioma<\/label>/)
+  assert.match(hero, /<label for="languageSelector"[^>]*class="sr-only"[^>]*>Idioma<\/label>/)
   assert.match(hero, /<select[\s\S]*id="languageSelector"[\s\S]*name="language"[\s\S]*aria-label="Idioma"/)
-  assert.equal((hero.match(/<option value="pt-BR"[^>]*selected>Português<\/option>/g) ?? []).length, 1)
-  assert.equal((hero.match(/<option value="en"[^>]*>English<\/option>/g) ?? []).length, 1)
+  assert.equal((hero.match(/<option value="pt-BR"[^>]*selected>🇧🇷 PT<\/option>/g) ?? []).length, 1)
+  assert.equal((hero.match(/<option value="en"[^>]*>🇬🇧 EN<\/option>/g) ?? []).length, 1)
   assert.match(html, /^<!doctype html>\s*<html lang="pt-BR">/)
-  assert.match(styles, /\.language-selector\s*\{[\s\S]*max-width: 280px;[\s\S]*width: 100%;/)
-  assert.match(styles, /\.language-selector select\s*\{[\s\S]*min-width: 0;/)
+  assert.match(styles, /\.language-selector\s*\{[\s\S]*position: absolute;[\s\S]*z-index: 2;/)
+  assert.match(styles, /\.language-selector select\s*\{[\s\S]*min-width: 88px;[\s\S]*width: 88px;/)
 })
 
 test("declarative localization keys exist in parity across both static catalogs", () => {
