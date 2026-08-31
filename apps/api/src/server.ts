@@ -1,17 +1,17 @@
-import { Client, Transaction, TransactionHash, preprod } from "@evolution-sdk/evolution"
+import { Transaction, TransactionHash } from "@evolution-sdk/evolution"
 import express from "express"
 import { existsSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import {
-  BLOCKFROST_PREPROD_URL,
   BlockfrostHttpError,
   getAddressReadiness,
   getBlockfrostReadiness,
   getTransactionInclusion,
-  loadBlockfrostProjectId,
+  makeWorkshopBlockfrostClient,
 } from "../../../packages/cardano/src/internal/blockfrost-client.js"
+import { PUBLIC_WORKSHOP_NETWORK_CONFIG } from "../../../packages/cardano/src/internal/network-config.js"
 import { buildPaymentTx } from "../../../packages/cardano/src/workshop/01-payment.js"
 import { buildMetadataTx } from "../../../packages/cardano/src/workshop/02-metadata.js"
 import { buildMintTx } from "../../../packages/cardano/src/workshop/03-mint-cip25.js"
@@ -54,7 +54,7 @@ import {
   parseTransactionHash,
 } from "./request-validation.js"
 
-const app = express()
+export const app = express()
 app.disable("x-powered-by")
 const port = Number(process.env.PORT ?? 8787)
 const host = process.env.HOST ?? "127.0.0.1"
@@ -93,7 +93,7 @@ app.get("/api/readiness", asyncRoute(async (req, res) => {
 
   res.json({
     ok: provider.configured && provider.reachable && provider.healthy,
-    network: "preprod",
+    network: PUBLIC_WORKSHOP_NETWORK_CONFIG,
     provider,
     wallet,
     note: formatMessage(messageRef("api.readiness.note"), res.locals.locale as Locale),
@@ -155,10 +155,7 @@ for (const prefix of ["/api/workshop/03-multisig", "/api/workshop/04-multisig"])
 
 app.post("/api/submit-tx", asyncRoute(async (req, res) => {
   const signedTxCbor = parseSubmitTxRequest(req.body)
-  const provider = Client.make(preprod).withBlockfrost({
-    baseUrl: BLOCKFROST_PREPROD_URL,
-    projectId: loadBlockfrostProjectId(),
-  })
+  const provider = makeWorkshopBlockfrostClient()
   const txHash = await provider.submitTx(Transaction.fromCBORHex(signedTxCbor))
 
   res.json({ txHash: TransactionHash.toHex(txHash) })
@@ -178,9 +175,12 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
   res.status(status).json({ error: localizeApiProblem(problem, locale) })
 })
 
-app.listen(port, host, () => {
+export const startServer = () => app.listen(port, host, () => {
   console.log(`Backend listening on http://${host}:${port}`)
 })
+
+const entrypoint = process.argv[1] ? resolve(process.argv[1]) : undefined
+if (entrypoint === fileURLToPath(import.meta.url)) startServer()
 
 const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } => {
   if (error instanceof ApiError) return { status: error.status, problem: error.problem }

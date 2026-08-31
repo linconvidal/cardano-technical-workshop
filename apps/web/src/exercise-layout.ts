@@ -21,7 +21,7 @@ const standardZones = (prefix: string): ReadonlyArray<FlowZoneDefinition> => [
   { kind: "confirmation", first: ":scope > .submit-review", last: ":scope > .recovery-actions" },
 ]
 
-export const exerciseLayoutDefinitions: ReadonlyArray<ExerciseLayoutDefinition> = [
+const exerciseLayoutDefinitions: ReadonlyArray<ExerciseLayoutDefinition> = [
   { id: "payment", root: "#paymentPanel", headingLevel: 3, zones: standardZones("payment") },
   { id: "metadata", root: "#metadataPanel", headingLevel: 3, zones: standardZones("metadata") },
   {
@@ -69,20 +69,18 @@ export const exerciseLayoutDefinitions: ReadonlyArray<ExerciseLayoutDefinition> 
   { id: "mint", root: "#mintPanel", headingLevel: 3, zones: standardZones("mint") },
 ]
 
-const zonePresentation: Record<FlowZoneKind, { index: string; key: string; fallback: string }> = {
-  inputs: { index: "01", key: "layout.zone.inputs", fallback: "Entradas" },
-  steps: { index: "02", key: "layout.zone.steps", fallback: "Etapas" },
-  current: { index: "03", key: "layout.zone.current", fallback: "Ação atual" },
-  outputs: { index: "04", key: "layout.zone.outputs", fallback: "Outputs" },
-  confirmation: { index: "05", key: "layout.zone.confirmation", fallback: "Confirmação final" },
+const zonePresentation: Record<FlowZoneKind, { key: string; fallback: string }> = {
+  inputs: { key: "layout.zone.inputs", fallback: "Entradas" },
+  steps: { key: "layout.zone.steps", fallback: "Etapas" },
+  current: { key: "layout.zone.current", fallback: "Ação atual" },
+  outputs: { key: "layout.zone.outputs", fallback: "Outputs" },
+  confirmation: { key: "layout.zone.confirmation", fallback: "Confirmação final" },
 }
 
-export const contractIconKeys = [
+const contractIconKeys = [
   "common.objective",
   "common.completedWhen",
   "common.submissionEffect",
-  "common.risk",
-  "common.limit",
 ] as const
 
 type ContractIconKey = typeof contractIconKeys[number]
@@ -91,8 +89,6 @@ const contractIconMarkup: Record<ContractIconKey, string> = {
   "common.objective": '<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   "common.completedWhen": '<rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 12 3 3 5-6"/>',
   "common.submissionEffect": '<path d="M4 5h8v14H4zM9 12h11m-4-4 4 4-4 4"/>',
-  "common.risk": '<path d="m12 3 9 17H3L12 3Z"/><path d="M12 9v4m0 3h.01"/>',
-  "common.limit": '<path d="M8 4H5v16h3M16 4h3v16h-3M9 12h6"/>',
 }
 
 export const hydrateExerciseLayouts = (document: Document = globalThis.document) => {
@@ -100,7 +96,7 @@ export const hydrateExerciseLayouts = (document: Document = globalThis.document)
   for (const definition of exerciseLayoutDefinitions) {
     const root = document.querySelector<HTMLElement>(definition.root)
     if (!root || root.querySelector(":scope > .flow-zone")) continue
-    for (const zone of definition.zones) createZone(root, definition, zone)
+    definition.zones.forEach((zone, zoneIndex) => createZone(root, definition, zone, zoneIndex))
   }
 }
 
@@ -126,6 +122,7 @@ const createZone = (
   root: HTMLElement,
   definition: ExerciseLayoutDefinition,
   zone: FlowZoneDefinition,
+  zoneIndex: number,
 ) => {
   const first = root.querySelector<HTMLElement>(zone.first)
   const last = root.querySelector<HTMLElement>(zone.last)
@@ -145,7 +142,7 @@ const createZone = (
   const index = root.ownerDocument.createElement("span")
   index.className = "flow-zone-index"
   index.setAttribute("aria-hidden", "true")
-  index.textContent = zonePresentation[zone.kind].index
+  index.textContent = String(zoneIndex + 1).padStart(2, "0")
   const title = root.ownerDocument.createElement(`h${definition.headingLevel}`)
   title.id = titleId
   title.dataset.i18n = zonePresentation[zone.kind].key

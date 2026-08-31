@@ -1,7 +1,8 @@
-import { Address, Assets, Client, KeyHash, NativeScripts, ScriptHash, Transaction, UTxO, preprod } from "@evolution-sdk/evolution"
+import { Address, Assets, KeyHash, NativeScripts, ScriptHash, Transaction, UTxO } from "@evolution-sdk/evolution"
 
 import { expectKeyHash } from "../internal/addresses.js"
-import { BLOCKFROST_PREPROD_URL, loadBlockfrostProjectId } from "../internal/blockfrost-client.js"
+import { makeWorkshopBlockfrostClient } from "../internal/blockfrost-client.js"
+import { WORKSHOP_NETWORK_CONFIG } from "../internal/network-config.js"
 import { bytesToHex } from "../internal/serialization.js"
 import { summarizeTransaction } from "./transaction-summary.js"
 import type { MultisigDetails, MultisigLockParams, MultisigParams, MultisigUnlockParams, TxBuildResult } from "./types.js"
@@ -22,10 +23,7 @@ export const describeMultisig = (params: MultisigParams): MultisigDetails => {
 }
 
 export const listMultisigScriptUtxos = async (params: MultisigParams) => {
-  const provider = Client.make(preprod).withBlockfrost({
-    baseUrl: BLOCKFROST_PREPROD_URL,
-    projectId: loadBlockfrostProjectId(),
-  })
+  const provider = makeWorkshopBlockfrostClient()
   const details = describeMultisig(params)
   const scriptAddress = Address.fromBech32(details.scriptAddress)
   const scriptUtxos = await provider.getUtxos(scriptAddress)
@@ -37,10 +35,7 @@ export const listMultisigScriptUtxos = async (params: MultisigParams) => {
 }
 
 export const verifyMultisigScriptUtxo = async (scriptAddress: string, outRef: string) => {
-  const provider = Client.make(preprod).withBlockfrost({
-    baseUrl: BLOCKFROST_PREPROD_URL,
-    projectId: loadBlockfrostProjectId(),
-  })
+  const provider = makeWorkshopBlockfrostClient()
   const scriptUtxos = await provider.getUtxos(Address.fromBech32(scriptAddress))
   const selected = scriptUtxos.find((utxo) => UTxO.toOutRefString(utxo) === outRef)
   if (!selected) throw new Error(`Script UTxO ${outRef} not found at script address ${scriptAddress}`)
@@ -53,11 +48,7 @@ export const verifyMultisigScriptUtxo = async (scriptAddress: string, outRef: st
 
 export const buildMultisigLockTx = async (params: MultisigLockParams): Promise<TxBuildResult> => {
   const details = describeMultisig(params)
-  const result = await Client.make(preprod)
-    .withBlockfrost({
-      baseUrl: BLOCKFROST_PREPROD_URL,
-      projectId: loadBlockfrostProjectId(),
-    })
+  const result = await makeWorkshopBlockfrostClient()
     .withAddress(params.userAddress)
     .newTx()
     .payToAddress({
@@ -80,10 +71,7 @@ export const buildMultisigLockTx = async (params: MultisigLockParams): Promise<T
 }
 
 export const buildMultisigUnlockTx = async (params: MultisigUnlockParams): Promise<TxBuildResult> => {
-  const provider = Client.make(preprod).withBlockfrost({
-    baseUrl: BLOCKFROST_PREPROD_URL,
-    projectId: loadBlockfrostProjectId(),
-  })
+  const provider = makeWorkshopBlockfrostClient()
   const nativeScript = twoSignerScript(params.userAddress, params.secondSignerAddress)
   const details = describeMultisig(params)
   const scriptAddress = Address.fromBech32(details.scriptAddress)
@@ -140,7 +128,10 @@ export const twoSignerScript = (
 }
 
 export const scriptAddressFromNativeScript = (nativeScript: NativeScripts.NativeScript): Address.Address =>
-  new Address.Address({ networkId: 0, paymentCredential: ScriptHash.fromScript(nativeScript) })
+  new Address.Address({
+    networkId: WORKSHOP_NETWORK_CONFIG.networkId,
+    paymentCredential: ScriptHash.fromScript(nativeScript),
+  })
 
 const paymentKeyHashFromAddress = (bech32: string, label: string): KeyHash.KeyHash =>
   expectKeyHash(Address.fromBech32(bech32).paymentCredential, `${label} payment credential`)

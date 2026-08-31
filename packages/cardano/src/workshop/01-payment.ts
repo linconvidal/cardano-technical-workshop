@@ -1,16 +1,11 @@
-import { Address, Assets, Client, Transaction, preprod } from "@evolution-sdk/evolution"
+import { Address, Assets, Transaction } from "@evolution-sdk/evolution"
 
-import { BLOCKFROST_PREPROD_URL, loadBlockfrostProjectId } from "../internal/blockfrost-client.js"
+import { makeWorkshopBlockfrostClient } from "../internal/blockfrost-client.js"
 import { summarizeTransaction } from "./transaction-summary.js"
 import type { PaymentBuildParams, TxBuildResult } from "./types.js"
 
 export const buildPaymentTx = async (params: PaymentBuildParams): Promise<TxBuildResult> => {
-  const client = Client.make(preprod)
-    .withBlockfrost({
-      baseUrl: BLOCKFROST_PREPROD_URL,
-      projectId: loadBlockfrostProjectId(),
-    })
-    .withAddress(params.userAddress)
+  const client = makeWorkshopBlockfrostClient().withAddress(params.userAddress)
 
   const result = await client
     .newTx()

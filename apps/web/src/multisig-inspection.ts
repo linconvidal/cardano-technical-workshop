@@ -8,6 +8,7 @@ import {
   TransactionHash,
 } from "@evolution-sdk/evolution"
 
+import { WORKSHOP_NETWORK_CONFIG } from "../../../packages/cardano/src/internal/network-config.js"
 import { summarizeTransaction } from "../../../packages/cardano/src/workshop/transaction-summary.js"
 
 export const inspectMultisigUnlock = (unsignedCbor: string): Record<string, unknown> => {
@@ -40,7 +41,7 @@ export const inspectMultisigUnlock = (unsignedCbor: string): Record<string, unkn
   }
 
   const scriptAddress = Address.toBech32(new Address.Address({
-    networkId: 0,
+    networkId: WORKSHOP_NETWORK_CONFIG.networkId,
     paymentCredential: ScriptHash.fromScript(matchingScript),
   }))
   const outputs = transaction.body.outputs.map((output) => ({

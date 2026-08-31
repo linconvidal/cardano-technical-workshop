@@ -12,7 +12,8 @@ A fronteira de custódia é explícita:
 
 ## Requisitos
 
-- Node.js 20 ou superior;
+- Node.js 20.19.0 ou superior;
+- Google Chrome ou Chromium disponível como `google-chrome` ou por `CHROME_BIN`, além de `gio` para descartar o perfil temporário do smoke test de navegador;
 - projeto Blockfrost em Cardano Preprod;
 - wallet CIP-30 configurada em Preprod;
 - tADA em pelo menos um UTxO da wallet usada para construir transações;
@@ -29,6 +30,8 @@ cp .env.example .env
 set -a; source .env; set +a
 npm run dev
 ```
+
+Mantenha `CARDANO_NETWORK=preprod`. O backend rejeita Preview, mainnet e valores desconhecidos antes de iniciar.
 
 Os serviços escutam apenas em `127.0.0.1` por padrão para não expor a credencial Blockfrost à rede local. Para outro bind, defina `HOST` no backend e passe um `--host` explícito ao Vite somente quando compreender o uso compartilhado da cota.
 
@@ -53,7 +56,8 @@ A Workbench é o guia operacional autoritativo. Depois de uma introdução curta
 4. reconhecer build, assinatura, merge, submissão e inclusão;
 5. corrigir um erro e tentar novamente sem perder o último checkpoint válido;
 6. reiniciar apenas o exercício atual;
-7. restaurar campos e artefatos preservados na mesma aba.
+7. restaurar campos e artefatos preservados na mesma aba;
+8. consultar o trecho de código real correspondente a cada etapa.
 
 A sessão usa `sessionStorage`. Ela preserva endereços, CBOR e witnesses na aba atual, mas nunca armazena a chave privada ou o objeto CIP-30. Depois de recarregar a página, a wallet precisa ser conectada novamente. O script address e a lista de UTxOs do setup multisig não são persistidos; gere, confira e selecione esses dados novamente antes de um novo lock ou unlock.
 
@@ -71,7 +75,7 @@ A troca não reconstrói, assina, combina, submete, reinicia nem altera o estado
 2. Pagamento com metadata no label 674.
 3. Multisig 2-de-2, com lock, seleção de UTxO, handoff de CBOR e unlock.
 4. Native Asset em dois exemplos:
-   - 4A: emissão ilustrativa de `EAC-BRE-2025P01`, aposentadoria parcial por burn e metadata raw no label `65536` da faixa private use;
+   - 4A: emissão didática de `EAC-WORKSHOP-001`, aposentadoria parcial por burn e metadata raw no label `65536` da faixa private use;
    - 4B: media token com metadata de apresentação CIP-25 no label `721`.
 
 Cada pipeline mantém o mesmo contrato:
@@ -85,6 +89,8 @@ backend submete signed tx
 Workbench verifica inclusão na Preprod
 ```
 
+Cada cartão de etapa oferece `Ver código`. O modal identifica exercício, etapa, arquivo e intervalo de linhas e mostra um trecho extraído do código-fonte atual com realce sintático TypeScript. Builds limpos ligam o trecho ao commit Git exato. Com alterações locais sem commit, o caminho continua visível, mas não recebe um link remoto que representaria outro código. Abrir ou fechar o modal não altera inputs, progresso, artefatos nem sessão.
+
 O hash é determinístico e pode ser calculado localmente antes da submissão. Uma resposta de sucesso do backend confirma que o Blockfrost aceitou a submissão. Se a resposta se perder, a Workbench preserva o hash como `resultado desconhecido`, permite consultar inclusão e só repete a submissão por ação explícita. Um `404` na consulta significa apenas que o Blockfrost ainda não indexa o hash; não confirma rejeição nem aceitação. O exercício só mostra conclusão quando o Blockfrost informa inclusão em um bloco. Essa inclusão não deve ser descrita como finalidade irreversível.
 
 ## Efeitos na Preprod
@@ -93,9 +99,9 @@ O hash é determinístico e pode ser calculado localmente antes da submissão. U
 - Metadata transfere tADA e publica conteúdo visível na blockchain.
 - Multisig lock move tADA para um script que exige duas chaves distintas. Uma configuração incorreta pode deixar o saldo inacessível.
 - Multisig unlock consome o UTxO escolhido, envia o valor definido ao destino e devolve o troco ao script. A inclusão conclui uma rodada, não a recuperação total do saldo. Para mover o restante, reinicie o unlock, liste o novo UTxO e repita com as duas wallets.
-- O exemplo EAC cria `12088322` unidades ilustrativas de `EAC-BRE-2025P01`, exibidas como `12.088,322 EAC`. Esse número não representa a oferta alocável publicada pela Heidelberg Materials. O saldo permanece na wallet conectada.
-- A emissão anexa `methodology_hash`, `assurance_hash` e `evidence_root` no label `65536`. A aposentadoria queima `125000` unidades, mantém `11963322` no output e anexa `declaration_hash` e `delivery_reference_hash` no mesmo label. O label private use não torna os dados confidenciais.
-- A policy EAC é estável e exige a chave da wallet. Ela não valida metadata, não limita a oferta e não prova fatos industriais. A validade de aproximadamente três horas pertence a cada transação construída, não à policy.
+- O exemplo EAC cria `1000000` unidades-base sintéticas de `EAC-WORKSHOP-001`. Com `decimals: 3`, a Workbench exibe `1.000,000 EAC`. Essa convenção de exibição não altera a quantidade inteira registrada no ledger. O saldo permanece na wallet conectada.
+- A emissão anexa `methodology_hash`, `assurance_hash` e `evidence_root` no label `65536`. A aposentadoria queima `125000` unidades-base, mantém `875000` no output e anexa `declaration_hash` e `delivery_reference_hash` no mesmo label. Todos os hashes são sintéticos. O label private use não torna os dados confidenciais.
+- A policy EAC é estável e exige a chave da wallet. Ela não valida metadata, não limita a oferta nem comprova alegações externas. A validade de aproximadamente três horas pertence a cada transação construída, não à policy.
 - O exemplo CIP-25 cria unidades de um media token, usa ao menos 5 tADA no output e possui policy com validade de aproximadamente três horas.
 
 Use wallets descartáveis e valores de testnet durante validação.
@@ -141,15 +147,18 @@ O CLI `sign-cbor` pode produzir o segundo witness do unlock. O unsigned CBOR é 
 ## Validação
 
 ```bash
+# descobre recursivamente todos os arquivos *.test.ts
 npm test
 npm run build
 # com npm run dev ativo em outro terminal
 npm run test:browser
+# ou com build novo, backend isolado e Blockfrost propositalmente desconfigurado
+npm run test:browser:isolated
 ```
 
-Os testes cobrem validação de requests, schema raw da emissão EAC, policy EAC estável, rede e valores, signers multisig distintos, inspeção de CBOR importado, prontidão Blockfrost, consulta de inclusão, submissão ambígua, hash divergente, resumos derivados da transação, validade dos mints, erros HTTP, progressão do pipeline, invalidação de artefatos, retry, restauração de sessão, localização e alinhamento visual dos inputs.
+Os testes de Node cobrem validação de requests, dispatch básico da CLI, construção local das transações com respostas Blockfrost controladas, schema raw da emissão EAC, policy EAC estável, rede e valores, signers multisig distintos, inspeção de CBOR importado, prontidão Blockfrost, consulta de inclusão, submissão ambígua, hash divergente, resumos derivados da transação, validade dos mints, erros HTTP, progressão do pipeline, invalidação de artefatos, retry, restauração de sessão e localização.
 
-Os cenários comportamentais estão em [`features/participant-led-workbench.feature`](features/participant-led-workbench.feature), com uma versão correspondente em inglês em [`features/participant-led-workbench.en.feature`](features/participant-led-workbench.en.feature).
+O smoke test de navegador aceita tanto um backend Blockfrost pronto quanto um backend desconfigurado ou temporariamente indisponível. Ele verifica a coerência da prontidão renderizada, localização, acessibilidade, layout, restauração e utilitários da interface. Ele não constrói, assina, submete nem confirma uma transação real. Essa última validação exige uma wallet CIP-30 financiada em Preprod e autorização explícita do participante.
 
 ## Roteiro de facilitação
 

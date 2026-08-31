@@ -1,11 +1,10 @@
 import {
-  KeyHash,
   Transaction,
   TransactionBody,
   TransactionHash,
   TransactionWitnessSet,
-  VKey,
 } from "@evolution-sdk/evolution"
+import { validateTransactionVKeyWitnesses } from "../../../packages/cardano/src/internal/transaction-witnesses.js"
 import {
   formatMessage,
   messageRef,
@@ -35,7 +34,7 @@ export const hydrateArtifactBoxes = (locale: Locale = "pt-BR") => {
     const target = requireAttribute(placeholder, "target")
     const references = declaredArtifactReferences(placeholder) ?? artifactReferences(target)
     const editable = placeholder.hasAttribute("editable")
-    const node = template.content.firstElementChild?.cloneNode(true) as HTMLElement
+    const node = template.content.firstElementChild?.cloneNode(true) as HTMLDetailsElement
     const textarea = selectWithin<HTMLTextAreaElement>(node, "textarea")
     const copyButton = selectWithin<HTMLButtonElement>(node, ".copy-button")
     const titleElement = selectWithin<HTMLElement>(node, ".artifact-title")
@@ -55,6 +54,9 @@ export const hydrateArtifactBoxes = (locale: Locale = "pt-BR") => {
       title: titleElement.textContent,
     }), locale))
     copyButton.addEventListener("click", (event) => event.stopPropagation())
+    node.addEventListener("toggle", () => {
+      if (node.open) setArtifactUnread(node, false)
+    })
     placeholder.replaceWith(node)
   })
 }
@@ -68,48 +70,18 @@ export const mergeWitnesses = (
   const cleanWitnesses = witnessSets.map((witness) => witness.trim()).filter(Boolean)
   if (cleanWitnesses.length === 0) throw new Error("witness_set_missing")
 
-  const transaction = Transaction.fromCBORHex(cleanUnsigned)
-  const bodyHash = TransactionBody.toHash(transaction.body).hash
-  const signerHashes = new Set<string>()
-
+  Transaction.fromCBORHex(cleanUnsigned)
   for (const witnessCbor of cleanWitnesses) {
     const witnessSet = TransactionWitnessSet.fromCBORHex(requireCbor(witnessCbor, "witness set CBOR"))
-    const vkeyWitnesses = witnessSet.vkeyWitnesses ?? []
-    if (vkeyWitnesses.length === 0) throw new Error("witness_set_missing_vkey_signature")
-
-    for (const witness of vkeyWitnesses) {
-      const signerHash = KeyHash.toHex(KeyHash.fromVKey(witness.vkey))
-      if (signerHashes.has(signerHash)) throw new Error(`duplicate_signer_witness: ${signerHash}`)
-      if (!VKey.verify(witness.vkey, bodyHash, witness.signature.bytes)) {
-        throw new Error(`invalid_signer_signature: ${signerHash}`)
-      }
-      signerHashes.add(signerHash)
-    }
+    if ((witnessSet.vkeyWitnesses ?? []).length === 0) throw new Error("witness_set_missing_vkey_signature")
   }
 
-  const bodyRequiredSigners = (transaction.body.requiredSigners ?? []).map((keyHash) =>
-    KeyHash.toHex(keyHash).toLowerCase())
-  if (
-    expectedSignerHashes &&
-    bodyRequiredSigners.length > 0 &&
-    !sameSet(bodyRequiredSigners, expectedSignerHashes.map((hash) => hash.toLowerCase()))
-  ) {
-    throw new Error("required_signers_mismatch")
-  }
-
-  const requiredSigners = expectedSignerHashes?.map((hash) => hash.toLowerCase()) ?? bodyRequiredSigners
-  if (requiredSigners.length > 0) {
-    const expected = new Set(requiredSigners)
-    const missing = [...expected].filter((hash) => !signerHashes.has(hash))
-    const unexpected = [...signerHashes].filter((hash) => !expected.has(hash))
-    if (missing.length > 0) throw new Error(`missing_signer_witnesses: ${missing.join(", ")}`)
-    if (unexpected.length > 0) throw new Error(`unexpected_signer_witness: ${unexpected.join(", ")}`)
-  }
-
-  return cleanWitnesses.reduce(
+  const signedCbor = cleanWitnesses.reduce(
     (tx, witness) => Transaction.addVKeyWitnessesHex(tx, witness),
     cleanUnsigned,
   )
+  validateTransactionVKeyWitnesses(Transaction.fromCBORHex(signedCbor), expectedSignerHashes)
+  return signedCbor
 }
 
 export const transactionHashFromCbor = (transactionCbor: string): string => {
@@ -121,6 +93,30 @@ export const copyArtifact = async (targetId: string) => {
   const value = select<HTMLTextAreaElement>(`#${targetId}`).value.trim()
   if (!value) throw new MessageError("artifact_empty", messageRef("clipboard.error.empty"))
   await navigator.clipboard.writeText(value)
+}
+
+export const artifactUnreadAfterUpdate = (
+  currentUnread: boolean,
+  previousValue: string,
+  nextValue: string,
+  isOpen: boolean,
+): boolean => {
+  if (isOpen || !nextValue.trim()) return false
+  return previousValue === nextValue ? currentUnread : true
+}
+
+export const setArtifactValue = (element: HTMLTextAreaElement, nextValue: string) => {
+  const artifact = element.closest<HTMLDetailsElement>(".artifact")
+  const previousValue = element.value
+  element.value = nextValue
+  if (!artifact) return
+
+  setArtifactUnread(artifact, artifactUnreadAfterUpdate(
+    artifact.dataset.unread === "true",
+    previousValue,
+    nextValue,
+    artifact.open,
+  ))
 }
 
 export const rerenderArtifactBoxes = (locale: Locale) => {
@@ -167,6 +163,15 @@ export const parseDetails = (value: string): Record<string, unknown> | undefined
 
 export const setVisible = (element: HTMLElement, visible: boolean) => {
   element.hidden = !visible
+}
+
+const setArtifactUnread = (artifact: HTMLDetailsElement, unread: boolean) => {
+  const marker = selectWithin<HTMLElement>(artifact, ".artifact-unread-marker")
+  const label = selectWithin<HTMLElement>(artifact, ".artifact-unread-label")
+  marker.hidden = !unread
+  label.hidden = !unread
+  if (unread) artifact.dataset.unread = "true"
+  else delete artifact.dataset.unread
 }
 
 const requireAttribute = (element: Element, name: string): string => {
@@ -252,6 +257,3 @@ const requireCbor = (value: string, label: string): string => {
   if (clean.length % 2 !== 0 || !/^[0-9a-fA-F]+$/.test(clean)) throw new Error(`invalid_cbor_hex: ${label}`)
   return clean
 }
-
-const sameSet = (left: ReadonlyArray<string>, right: ReadonlyArray<string>): boolean =>
-  left.length === right.length && left.every((value) => right.includes(value))

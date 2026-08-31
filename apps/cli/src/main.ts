@@ -22,6 +22,7 @@ const usage = `Commands:
   sign-cbor <unsigned_tx_cbor>
 
 Environment:
+  CARDANO_NETWORK=preprod
   BLOCKFROST_PROJECT_ID
   WALLET_MNEMONIC or local .seedphrase
 `

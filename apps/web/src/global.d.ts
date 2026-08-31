@@ -10,6 +10,8 @@ export type Cip30WalletApi = {
 }
 
 declare global {
+  const __WORKBENCH_SOURCE_REVISION__: string
+
   interface Window {
     cardano?: Record<
       string,

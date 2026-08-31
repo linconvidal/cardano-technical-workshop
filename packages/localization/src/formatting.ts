@@ -8,7 +8,7 @@ export const formatDateTime = (
   value instanceof Date ? value : new Date(value),
 )
 
-export type ScaledBigIntFormatOptions = {
+type ScaledBigIntFormatOptions = {
   minimumFractionDigits?: number
   maximumFractionDigits?: number
   useGrouping?: boolean

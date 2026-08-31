@@ -33,6 +33,7 @@ export const populateWalletOptions = (
 
 export const renderReadiness = (readiness: WorkbenchReadiness, locale: Locale) => {
   const response = readiness.response
+  renderNetwork(readiness, locale)
   setReadinessItem("backendReadiness", readiness.error ? "error" : response ? "ready" : "checking", locale)
   setReadinessItem(
     "providerReadiness",
@@ -83,6 +84,25 @@ export const renderReadiness = (readiness: WorkbenchReadiness, locale: Locale) =
     "success",
     locale,
   )
+}
+
+const renderNetwork = (readiness: WorkbenchReadiness, locale: Locale) => {
+  const element = select<HTMLElement>("#workbenchNetwork")
+  const network = readiness.response?.network.name.trim()
+  if (network) {
+    element.textContent = network
+      .split(/[-_\s]+/)
+      .filter(Boolean)
+      .map((part) => `${part.charAt(0).toLocaleUpperCase(locale)}${part.slice(1).toLocaleLowerCase(locale)}`)
+      .join(" ")
+    element.dataset.network = network
+    return
+  }
+
+  element.textContent = formatMessage(messageRef(
+    readiness.error ? "network.unavailable" : "network.checking",
+  ), locale)
+  delete element.dataset.network
 }
 
 const setReadinessMessage = (

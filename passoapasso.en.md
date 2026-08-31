@@ -197,11 +197,12 @@ The unlock sends the selected value to the destination and returns change to the
 
 ### 9.1 Exercise 4A: EAC issuance and retirement
 
-This exercise implements an illustrative accounting cycle inspired by ADR-002. The numbers do not represent the allocable supply published by Heidelberg Materials:
+This exercise implements a fully synthetic accounting cycle:
 
-- fixed asset name `EAC-BRE-2025P01`;
-- illustrative on-chain quantity `12088322`;
-- application display `12,088.322 EAC`, with three decimal places;
+- fixed asset name `EAC-WORKSHOP-001`;
+- ledger quantity of `1000000` base units;
+- display convention `decimals: 3`;
+- application display `1,000.000 EAC`;
 - connected wallet as the accounting address that keeps the balance available;
 - stable policy based on the wallet key;
 - approximately three-hour validity only for the current transaction;
@@ -220,11 +221,11 @@ The raw JSON contains exactly:
 }
 ```
 
-The API requires all six fields and 64-character lowercase hexadecimal hashes. This validation belongs to the application. The native policy checks only the authorized key. It does not read transaction metadata, limit supply, or prove external industrial facts.
+The API requires all six fields and 64-character lowercase hexadecimal hashes. This validation belongs to the application. The native policy checks only the authorized key. It does not read transaction metadata, limit supply, or verify external claims. Cardano records integer quantities. The `decimals: 3` field is only a convention used by the Workbench to display 1,000 base units as `1.000 EAC`.
 
-The default hash values are synthetic fixtures. Do not describe them as evidence from Heidelberg Materials or DNV. The private-use label avoids collisions with `674` and `721`, but does not make the content private or confidential.
+The default hash values are synthetic fixtures with no external evidentiary value. The private-use label avoids collisions with `674` and `721`, but does not make the content private or confidential.
 
-After issuance inclusion and indexing, retirement creates `-125000` in the mint field and returns `11963322` units to the wallet. Its metadata contains only:
+After issuance inclusion and indexing, retirement creates `-125000` base units in the mint field and returns `875000` base units to the wallet. The Workbench displays these values as `125.000 EAC` retired and `875.000 EAC` remaining. Its metadata contains only:
 
 ```json
 {

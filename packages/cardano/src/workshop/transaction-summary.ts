@@ -1,13 +1,13 @@
 import {
   Address,
   Assets,
-  SlotConfig,
   Time,
   Transaction,
   TransactionBody,
   TransactionHash,
 } from "@evolution-sdk/evolution"
 
+import { WORKSHOP_NETWORK_CONFIG } from "../internal/network-config.js"
 import { bytesToHex } from "../internal/serialization.js"
 
 export const summarizeTransaction = (transaction: Transaction.Transaction) => {
@@ -45,7 +45,7 @@ export const summarizeTransaction = (transaction: Transaction.Transaction) => {
     ttl: body.ttl,
     ttlUnixMs: transaction.body.ttl === undefined
       ? null
-      : Time.slotToUnixTime(transaction.body.ttl, SlotConfig.getSlotConfig("Preprod")).toString(),
+      : Time.slotToUnixTime(transaction.body.ttl, WORKSHOP_NETWORK_CONFIG.evolutionNetwork.slotConfig).toString(),
     auxiliaryData: transaction.auxiliaryData?.metadata
       ? Object.fromEntries(
         [...transaction.auxiliaryData.metadata].map(([label, metadata]) => [label.toString(), summarizeMetadatum(metadata)]),

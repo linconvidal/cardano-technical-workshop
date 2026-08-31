@@ -1,8 +1,14 @@
 import { getJson } from "./http.js"
 
+export type RuntimeNetworkConfig = {
+  name: string
+  networkId: number
+  explorerTransactionBaseUrl: string
+}
+
 export type ReadinessResponse = {
   ok: boolean
-  network: "preprod"
+  network: RuntimeNetworkConfig
   provider: {
     configured: boolean
     reachable: boolean
@@ -38,3 +44,14 @@ export const canBuildTransactions = (state: WorkbenchReadiness): boolean => Bool
   state.response?.ok &&
   state.response.wallet?.funded,
 )
+
+export const transactionExplorerUrl = (
+  network: RuntimeNetworkConfig | undefined,
+  txHash: string,
+): string | undefined => {
+  const baseUrl = network?.explorerTransactionBaseUrl.trim()
+  const hash = txHash.trim()
+  if (!baseUrl || !hash) return undefined
+  const normalizedBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`
+  return new URL(encodeURIComponent(hash), normalizedBase).href
+}

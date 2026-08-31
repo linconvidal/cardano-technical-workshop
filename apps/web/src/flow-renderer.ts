@@ -5,14 +5,18 @@ import {
   type MessageKey,
   type MessageRef,
 } from "../../../packages/localization/src/index.js"
+import { transactionExplorerUrl, type RuntimeNetworkConfig } from "./readiness.js"
 import { canRun, isAcknowledged, type FlowAction, type FlowState } from "./workbench-state.js"
-import { select, selectWithin, setVisible } from "./workbench-ui.js"
+import { select, selectWithin, setArtifactValue, setVisible } from "./workbench-ui.js"
 
 export type FlowReadiness = {
   walletConnected: boolean
   canBuild: boolean
   backendReady: boolean
+  network?: RuntimeNetworkConfig
 }
+
+export type CompletionKind = "step" | "exercise"
 
 export type FlowView = {
   root: HTMLElement
@@ -71,6 +75,7 @@ export const renderFlow = (
   readiness: FlowReadiness,
   review: MessageRef,
   completion: MessageRef,
+  completionKind: CompletionKind,
   locale: Locale,
 ) => {
   view.root.dataset.stage = state.stage
@@ -92,13 +97,15 @@ export const renderFlow = (
   view.reset.hidden = state.stage === "draft" && !state.error
   view.reset.disabled = Boolean(state.busyAction)
 
-  view.details.value = state.artifacts.details
-  view.unsigned.value = state.artifacts.unsigned
-  view.witnesses.forEach((element, index) => { element.value = state.artifacts.witnesses[index] ?? "" })
-  view.signed.value = state.artifacts.signed
-  view.txHash.value = state.artifacts.txHash
+  setArtifactValue(view.details, state.artifacts.details)
+  setArtifactValue(view.unsigned, state.artifacts.unsigned)
+  view.witnesses.forEach((element, index) => {
+    setArtifactValue(element, state.artifacts.witnesses[index] ?? "")
+  })
+  setArtifactValue(view.signed, state.artifacts.signed)
+  setArtifactValue(view.txHash, state.artifacts.txHash)
 
-  view.status.textContent = statusText(state, locale)
+  view.status.textContent = statusText(state, readiness, locale)
   setVisible(view.alert, Boolean(state.error))
   if (state.error) {
     view.alertMessage.textContent = formatMessage(state.error.message, locale)
@@ -110,15 +117,43 @@ export const renderFlow = (
   }
 
   setVisible(view.completion, state.stage === "included")
-  if (state.stage === "included") view.completion.textContent = formatMessage(completion, locale)
+  if (state.stage === "included") renderCompletion(view.completion, completion, completionKind, locale)
 
-  const hasHash = Boolean(state.artifacts.txHash)
-  view.explorer.href = hasHash
-    ? `https://preprod.cardanoscan.io/transaction/${state.artifacts.txHash}`
-    : "#"
-  setVisible(view.explorer, hasHash)
+  const explorerUrl = transactionExplorerUrl(readiness.network, state.artifacts.txHash)
+  if (explorerUrl) view.explorer.href = explorerUrl
+  else view.explorer.removeAttribute("href")
+  setVisible(view.explorer, Boolean(explorerUrl))
 
   renderProgress(view.root, state)
+}
+
+const renderCompletion = (
+  element: HTMLElement,
+  message: MessageRef,
+  kind: CompletionKind,
+  locale: Locale,
+) => {
+  const document = element.ownerDocument
+  const mark = document.createElement("span")
+  mark.className = "completion-mark"
+  mark.setAttribute("aria-hidden", "true")
+  mark.innerHTML = '<svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg>'
+
+  const body = document.createElement("span")
+  body.className = "completion-body"
+  const label = document.createElement("strong")
+  label.className = "completion-label"
+  label.textContent = formatMessage(messageRef(
+    kind === "exercise" ? "flow.completion.exerciseLabel" : "flow.completion.stepLabel",
+  ), locale)
+  const copy = document.createElement("span")
+  copy.className = "completion-message"
+  copy.textContent = formatMessage(message, locale)
+  body.append(label, copy)
+
+  element.dataset.completionKind = kind
+  element.setAttribute("aria-atomic", "true")
+  element.replaceChildren(mark, body)
 }
 
 const renderProgress = (root: HTMLElement, state: FlowState) => {
@@ -145,13 +180,23 @@ const completedActionCount = (state: FlowState): number => {
   }
 }
 
-const statusText = (state: FlowState, locale: Locale): string => {
+const statusText = (state: FlowState, readiness: FlowReadiness, locale: Locale): string => {
   if (state.busyAction) return formatMessage(messageRef(busyKeys[state.busyAction]), locale)
   if (state.error) {
     const guidance = formatMessage(state.error.guidance, locale)
     return formatMessage(messageRef("flow.status.failed", { guidance }), locale)
   }
   if (state.notice) return formatMessage(state.notice, locale)
+  if (state.stage === "draft") {
+    const key = !readiness.backendReady
+      ? "flow.status.waitBackend"
+      : !readiness.walletConnected
+        ? "flow.status.connectWallet"
+        : !readiness.canBuild
+          ? "flow.status.fundWallet"
+          : "flow.status.draft"
+    return formatMessage(messageRef(key), locale)
+  }
 
   const statusKeys = {
     draft: "flow.status.draft",

@@ -1,10 +1,12 @@
-import { Address, Client, preprod, TransactionWitnessSet } from "@evolution-sdk/evolution"
+import { Address, Client, TransactionWitnessSet } from "@evolution-sdk/evolution"
 
+import { WORKSHOP_NETWORK_CONFIG } from "../../../packages/cardano/src/internal/network-config.js"
 import { messageRef, type Locale } from "../../../packages/localization/src/index.js"
 import { MessageError } from "./flow-errors.js"
 import type { Cip30WalletApi } from "./global.js"
+import type { RuntimeNetworkConfig } from "./readiness.js"
 
-export type BrowserWalletClient = {
+type BrowserWalletClient = {
   address(): Promise<Address.Address>
   signTx(txCbor: string): Promise<TransactionWitnessSet.TransactionWitnessSet>
 }
@@ -37,7 +39,17 @@ export const discoverWallets = (locale: Locale = "pt-BR"): Array<DiscoveredWalle
     .sort((left, right) => left.name.localeCompare(right.name, locale))
 }
 
-export const connectWallet = async (providerKey: string): Promise<WalletSession> => {
+export const connectWallet = async (
+  providerKey: string,
+  network: RuntimeNetworkConfig,
+): Promise<WalletSession> => {
+  if (
+    network.name !== WORKSHOP_NETWORK_CONFIG.name ||
+    network.networkId !== WORKSHOP_NETWORK_CONFIG.networkId
+  ) {
+    throw new MessageError("wallet_network_configuration", messageRef("wallet.error.networkConfiguration"))
+  }
+
   const provider = window.cardano?.[providerKey]
   if (!provider) throw new MessageError(
     "wallet_not_found",
@@ -49,11 +61,11 @@ export const connectWallet = async (providerKey: string): Promise<WalletSession>
 
   const api = await provider.enable()
   const networkId = await api.getNetworkId()
-  if (networkId !== 0) {
+  if (networkId !== network.networkId) {
     throw new MessageError("wallet_on_mainnet", messageRef("wallet.error.mainnet"))
   }
 
-  const client = Client.make(preprod).withCip30(api)
+  const client = Client.make(WORKSHOP_NETWORK_CONFIG.evolutionNetwork).withCip30(api)
   const address = Address.toBech32(await client.address())
 
   return {

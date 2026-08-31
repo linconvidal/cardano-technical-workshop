@@ -15,7 +15,6 @@ type LocaleSubscriber = (locale: Locale, previousLocale: Locale) => void
 type LocaleControllerOptions = {
   document?: Document
   storage?: Storage
-  navigatorLanguages?: ReadonlyArray<string>
 }
 
 export class LocaleController {
@@ -107,7 +106,7 @@ export const createLocaleSelector = (controller: LocaleController): HTMLSelectEl
   return select
 }
 
-export const applyDeclarativeMessages = (document: Document, locale: Locale) => {
+const applyDeclarativeMessages = (document: Document, locale: Locale) => {
   document.querySelectorAll<HTMLElement>("[data-i18n]").forEach((element) => {
     const reference = declarativeReference(element.dataset.i18n, element.dataset.i18nValues)
     if (reference) element.textContent = formatMessage(reference, locale)

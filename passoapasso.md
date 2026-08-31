@@ -197,11 +197,12 @@ O unlock envia o valor escolhido ao destino e devolve o troco ao script. A rodad
 
 ### 9.1 Exercício 4A: emissão e aposentadoria EAC
 
-Este exercício implementa um ciclo contábil ilustrativo inspirado na ADR-002. Os números não representam a oferta alocável publicada pela Heidelberg Materials:
+Este exercício implementa um ciclo contábil inteiramente sintético:
 
-- asset name fixo `EAC-BRE-2025P01`;
-- quantidade ilustrativa on-chain `12088322`;
-- exibição da aplicação `12.088,322 EAC`, com três casas decimais;
+- asset name fixo `EAC-WORKSHOP-001`;
+- quantidade no ledger `1000000` unidades-base;
+- convenção de exibição `decimals: 3`;
+- exibição da aplicação `1.000,000 EAC`;
 - wallet conectada como endereço contábil que mantém o saldo disponível;
 - policy estável baseada na chave da wallet;
 - validade aproximada de três horas somente para a transação atual;
@@ -220,11 +221,11 @@ O JSON raw contém exatamente:
 }
 ```
 
-A API exige os seis campos e hashes hexadecimais minúsculos de 64 caracteres. Essa validação pertence à aplicação. A native policy verifica somente a chave autorizada; ela não lê transaction metadata, não limita a oferta e não prova os fatos industriais externos.
+A API exige os seis campos e hashes hexadecimais minúsculos de 64 caracteres. Essa validação pertence à aplicação. A native policy verifica somente a chave autorizada; ela não lê transaction metadata, não limita a oferta nem comprova alegações externas. Cardano registra quantidades inteiras. O campo `decimals: 3` é apenas uma convenção usada pela Workbench para exibir 1000 unidades-base como `1,000 EAC`.
 
-Os valores padrão dos hashes são fixtures sintéticas. Não os descreva como evidências da Heidelberg Materials ou da DNV. O label private use evita colisão com `674` e `721`, mas não torna o conteúdo privado ou confidencial.
+Os valores padrão dos hashes são fixtures sintéticas sem valor probatório externo. O label private use evita colisão com `674` e `721`, mas não torna o conteúdo privado ou confidencial.
 
-Depois da inclusão e indexação da emissão, a aposentadoria cria `-125000` no campo mint e devolve `11963322` unidades à wallet. Sua metadata contém somente:
+Depois da inclusão e indexação da emissão, a aposentadoria cria `-125000` unidades-base no campo mint e devolve `875000` unidades-base à wallet. A Workbench exibe esses valores como `125,000 EAC` aposentados e `875,000 EAC` restantes. Sua metadata contém somente:
 
 ```json
 {

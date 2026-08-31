@@ -5,7 +5,7 @@ import {
   type MessageRef,
 } from "../../../packages/localization/src/index.js"
 import { HttpError, postJson } from "./http.js"
-import { inputValue, renderJson, select, setVisible } from "./workbench-ui.js"
+import { inputValue, renderJson, select, setArtifactValue, setVisible } from "./workbench-ui.js"
 import type { WorkbenchLogger } from "./technical-log.js"
 import type { WalletSession } from "./wallet.js"
 
@@ -106,8 +106,8 @@ export class MultisigSetupController {
     this.listedFingerprint = undefined
     this.availableOutRefs.clear()
     this.currentUtxos = []
-    this.details.value = ""
-    this.utxos.value = ""
+    setArtifactValue(this.details, "")
+    setArtifactValue(this.utxos, "")
     this.clearSelectedOutRef()
     this.choicesContainer.replaceChildren()
     setVisible(this.choices, false)
@@ -138,7 +138,7 @@ export class MultisigSetupController {
       this.availableOutRefs.clear()
       this.listedFingerprint = undefined
       this.currentUtxos = []
-      this.utxos.value = ""
+      setArtifactValue(this.utxos, "")
       this.choicesContainer.replaceChildren()
       setVisible(this.choices, false)
       const result = await postJson<Record<string, unknown>>(
@@ -147,7 +147,7 @@ export class MultisigSetupController {
       )
       if (generation !== this.generation) return
 
-      this.details.value = renderJson(result)
+      setArtifactValue(this.details, renderJson(result))
       this.reviewedFingerprint = this.signerFingerprint()
       this.acknowledgement.checked = false
       this.acknowledgement.disabled = false
@@ -165,7 +165,7 @@ export class MultisigSetupController {
       )
       if (generation !== this.generation) return
 
-      this.utxos.value = renderJson(result)
+      setArtifactValue(this.utxos, renderJson(result))
       this.currentUtxos = result.scriptUtxos
       this.renderChoices(result.scriptUtxos)
 

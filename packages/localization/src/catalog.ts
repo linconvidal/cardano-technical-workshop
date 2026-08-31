@@ -3,7 +3,7 @@ import { englishCoreMessages, portugueseCoreMessages } from "./catalogs/core.js"
 import { englishFlowMessages, portugueseFlowMessages } from "./catalogs/flow.js"
 import { englishStaticMessages, portugueseStaticMessages } from "./catalogs/static.js"
 
-export const supportedLocales = ["pt-BR", "en"] as const
+const supportedLocales = ["pt-BR", "en"] as const
 export type Locale = typeof supportedLocales[number]
 export const defaultLocale: Locale = "pt-BR"
 
@@ -15,7 +15,7 @@ export const portugueseCatalog = {
 } as const
 
 export type MessageKey = keyof typeof portugueseCatalog
-export type Catalog = Readonly<Record<MessageKey, string>>
+type Catalog = Readonly<Record<MessageKey, string>>
 
 export const englishCatalog = {
   ...englishCoreMessages,

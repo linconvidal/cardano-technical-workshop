@@ -1,19 +1,17 @@
 import {
   Address,
   Assets,
-  Client,
   KeyHash,
   NativeScripts,
   ScriptHash,
-  SlotConfig,
   Time,
   Transaction,
   TransactionMetadatum,
-  preprod,
 } from "@evolution-sdk/evolution"
 
 import { expectKeyHash } from "../internal/addresses.js"
-import { BLOCKFROST_PREPROD_URL, loadBlockfrostProjectId } from "../internal/blockfrost-client.js"
+import { makeWorkshopBlockfrostClient } from "../internal/blockfrost-client.js"
+import { WORKSHOP_NETWORK_CONFIG } from "../internal/network-config.js"
 import { bytesToHex, textToAssetNameBytes } from "../internal/serialization.js"
 import { summarizeTransaction } from "./transaction-summary.js"
 import type {
@@ -24,8 +22,8 @@ import type {
   TxBuildResult,
 } from "./types.js"
 
-export const EAC_ASSET_NAME = "EAC-BRE-2025P01"
-export const EAC_ISSUANCE_AMOUNT = 12_088_322n
+export const EAC_ASSET_NAME = "EAC-WORKSHOP-001"
+export const EAC_ISSUANCE_AMOUNT = 1_000_000n
 export const EAC_METADATA_LABEL = 65_536n
 export const EAC_RETIREMENT_AMOUNT = 125_000n
 export const EAC_REMAINING_AMOUNT = EAC_ISSUANCE_AMOUNT - EAC_RETIREMENT_AMOUNT
@@ -38,7 +36,7 @@ export const buildEacMintTx = async (params: EacMintBuildParams): Promise<TxBuil
   const recipientAddress = Address.fromBech32(params.recipientAddress)
   const userKeyHash = expectKeyHash(userAddress.paymentCredential, "user payment credential")
 
-  const slotConfig = SlotConfig.getSlotConfig("Preprod")
+  const slotConfig = WORKSHOP_NETWORK_CONFIG.evolutionNetwork.slotConfig
   const requestedExpiry = BigInt(Date.now() + EAC_TX_TTL_MS)
   const expirySlot = Time.unixTimeToSlot(requestedExpiry, slotConfig)
   const expiresAt = Time.slotToUnixTime(expirySlot, slotConfig)
@@ -52,13 +50,10 @@ export const buildEacMintTx = async (params: EacMintBuildParams): Promise<TxBuil
   const assetNameHex = bytesToHex(assetNameBytes)
 
   const transactionMetadata = eacIssuanceMetadata(params.metadata)
-  const provider = Client.make(preprod).withBlockfrost({
-    baseUrl: BLOCKFROST_PREPROD_URL,
-    projectId: loadBlockfrostProjectId(),
-  })
+  const provider = makeWorkshopBlockfrostClient()
   const existingBalance = await eacBalanceOf(provider, userAddress, policyIdHex, assetNameHex)
   if (existingBalance !== 0n) {
-    throw new Error("The wallet already holds this illustrative EAC. Use a clean wallet or complete retirement before issuing again.")
+    throw new Error("The wallet already holds this workshop EAC. Use a clean wallet or complete retirement before issuing again.")
   }
 
   const result = await provider
@@ -108,7 +103,7 @@ export const buildEacMintTx = async (params: EacMintBuildParams): Promise<TxBuil
 export const buildEacRetirementTx = async (params: EacRetireBuildParams): Promise<TxBuildResult> => {
   const userAddress = Address.fromBech32(params.userAddress)
   const userKeyHash = expectKeyHash(userAddress.paymentCredential, "user payment credential")
-  const slotConfig = SlotConfig.getSlotConfig("Preprod")
+  const slotConfig = WORKSHOP_NETWORK_CONFIG.evolutionNetwork.slotConfig
   const requestedExpiry = BigInt(Date.now() + EAC_TX_TTL_MS)
   const expirySlot = Time.unixTimeToSlot(requestedExpiry, slotConfig)
   const expiresAt = Time.slotToUnixTime(expirySlot, slotConfig)
@@ -118,10 +113,7 @@ export const buildEacRetirementTx = async (params: EacRetireBuildParams): Promis
   const assetNameBytes = textToAssetNameBytes(EAC_ASSET_NAME)
   const assetNameHex = bytesToHex(assetNameBytes)
 
-  const provider = Client.make(preprod).withBlockfrost({
-    baseUrl: BLOCKFROST_PREPROD_URL,
-    projectId: loadBlockfrostProjectId(),
-  })
+  const provider = makeWorkshopBlockfrostClient()
   const existingBalance = await eacBalanceOf(provider, userAddress, policyIdHex, assetNameHex)
   if (existingBalance !== EAC_ISSUANCE_AMOUNT) {
     throw eacRetirementIndexedAmountError(existingBalance)
@@ -172,10 +164,10 @@ export const buildEacRetirementTx = async (params: EacRetireBuildParams): Promis
 }
 
 export const eacRetirementIndexedAmountError = (locatedAmount: bigint): Error =>
-  new Error(`Retirement requires exactly ${EAC_ISSUANCE_AMOUNT} indexed EAC units; located: ${locatedAmount}`)
+  new Error(`Retirement requires exactly ${EAC_ISSUANCE_AMOUNT} indexed EAC base units; located: ${locatedAmount}`)
 
 const eacBalanceOf = async (
-  provider: ReturnType<ReturnType<typeof Client.make>["withBlockfrost"]>,
+  provider: ReturnType<typeof makeWorkshopBlockfrostClient>,
   address: Address.Address,
   policyIdHex: string,
   assetNameHex: string,

@@ -35,8 +35,7 @@
         </div>
         <div class="network-badge" aria-label="Rede usada pela Workbench" data-i18n-attr="aria-label:network.ariaLabel">
           <span data-i18n="network.label">Rede</span>
-          <strong data-i18n="network.name">Preprod</strong>
-          <small data-i18n="network.detail">tADA e taxas reais de testnet</small>
+          <strong id="workbenchNetwork" aria-live="polite" data-i18n="network.checking">Verificando</strong>
         </div>
       </header>
 
@@ -51,7 +50,7 @@
           <summary data-i18n="readiness.setup.summary">Primeira execução local: instalar e iniciar</summary>
           <ol>
             <li><span data-i18n="readiness.setup.step1.before">No terminal, entre na pasta do workshop e execute</span> <code>npm install</code>.</li>
-            <li><span data-i18n="readiness.setup.step2.before">Execute</span> <code>cp .env.example .env</code> <span data-i18n="readiness.setup.step2.after">e coloque no arquivo somente o project id de um projeto Blockfrost Preprod.</span></li>
+            <li><span data-i18n="readiness.setup.step2.before">Execute</span> <code>cp .env.example .env</code> <span data-i18n="readiness.setup.step2.after">e substitua somente o project id de exemplo por um projeto Blockfrost Preprod.</span></li>
             <li><span data-i18n="readiness.setup.step3.before">Carregue o ambiente com</span> <code>set -a; source .env; set +a</code>.</li>
             <li><span data-i18n="readiness.setup.step2.before">Execute</span> <code>npm run dev</code> <span data-i18n="readiness.setup.step4.after">e mantenha o terminal aberto.</span></li>
             <li data-i18n="readiness.setup.step5">Volte a esta página. A verificação será repetida ao recarregar.</li>
@@ -62,10 +61,9 @@
         <aside class="inspection-tool" aria-label="Ferramenta externa para inspeção de CBOR" data-i18n-attr="aria-label:readiness.inspector.ariaLabel">
           <div>
             <strong data-i18n="readiness.inspector.title">Inspecione os artefatos CBOR</strong>
-            <p data-i18n="readiness.inspector.description">Use o CBOR Nemo para decodificar o unsigned CBOR produzido nos exercícios.</p>
+            <p><span data-i18n="readiness.inspector.description.before">Use o </span><a href="https://cbor.nemo157.com/" target="_blank" rel="noreferrer">CBOR Nemo</a><span data-i18n="readiness.inspector.description.after"> para decodificar o unsigned CBOR produzido nos exercícios.</span></p>
             <small data-i18n="readiness.inspector.warning">Ferramenta de terceiros. Não informe seed phrase, chave privada ou credencial Blockfrost. Quem obtiver um signed CBOR válido poderá submetê-lo à rede.</small>
           </div>
-          <a class="button-link secondary" href="https://cbor.nemo157.com/" target="_blank" rel="noreferrer" data-i18n="readiness.inspector.open">Abrir CBOR Nemo</a>
         </aside>
 
         <ol class="readiness-list" aria-label="Estado dos pré-requisitos" data-i18n-attr="aria-label:readiness.list.ariaLabel">
@@ -102,11 +100,11 @@
       </aside>
 
       <nav class="exercise-nav" aria-label="Exercícios da Workbench" data-i18n-attr="aria-label:nav.ariaLabel">
-        <a href="#paymentPanel"><span>1</span> <span data-i18n="nav.payment">Pagamento</span></a>
-        <a href="#metadataPanel"><span>2</span> <span data-i18n="nav.metadata">Metadata</span></a>
-        <a href="#multisigExercise"><span>3</span> <span data-i18n="nav.multisig">Multisig</span></a>
-        <a href="#eacMintPanel"><span>4A</span> <span data-i18n="nav.eacRaw">EAC raw</span></a>
-        <a href="#mintPanel"><span>4B</span> <span data-i18n="nav.cip25">CIP-25</span></a>
+        <a href="#paymentPanel"><span>1</span> <span data-i18n="nav.payment">Pagamento</span><span class="exercise-nav-complete-label sr-only" data-i18n="nav.completed" hidden>Concluído</span></a>
+        <a href="#metadataPanel"><span>2</span> <span data-i18n="nav.metadata">Metadata</span><span class="exercise-nav-complete-label sr-only" data-i18n="nav.completed" hidden>Concluído</span></a>
+        <a href="#multisigExercise"><span>3</span> <span data-i18n="nav.multisig">Multisig</span><span class="exercise-nav-complete-label sr-only" data-i18n="nav.completed" hidden>Concluído</span></a>
+        <a href="#eacMintPanel"><span>4A</span> <span data-i18n="nav.eacRaw">EAC raw</span><span class="exercise-nav-complete-label sr-only" data-i18n="nav.completed" hidden>Concluído</span></a>
+        <a href="#mintPanel"><span>4B</span> <span data-i18n="nav.cip25">CIP-25</span><span class="exercise-nav-complete-label sr-only" data-i18n="nav.completed" hidden>Concluído</span></a>
       </nav>
 
       <section class="card exercise-card" id="paymentPanel" aria-labelledby="paymentTitle">
@@ -169,12 +167,12 @@
           </label>
           <div class="actions">
             <button id="paymentSubmit" type="button" data-i18n="payment.action.submit">4. Submeter na Preprod</button>
-            <button id="paymentCheck" type="button" class="secondary" data-i18n="common.checkInclusion">Verificar inclusão</button>
-            <a id="paymentExplorer" class="button-link" target="_blank" rel="noreferrer" hidden data-i18n="common.viewCardanoscan">Ver no Cardanoscan</a>
+            <button id="paymentCheck" type="button" class="secondary" data-i18n="common.checkInclusion">5. Verificar inclusão</button>
+            <a id="paymentExplorer" class="button-link external-action-link" target="_blank" rel="noreferrer" hidden><span data-i18n="common.viewCardanoscan">Ver no Cardanoscan</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></a>
           </div>
         </section>
         <p id="paymentCompletion" class="completion" role="status" hidden></p>
-        <div class="recovery-actions"><button id="paymentRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="paymentReset" type="button" class="secondary" hidden data-i18n="common.resetExercise">Reiniciar exercício</button></div>
+        <div class="recovery-actions"><button id="paymentRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="paymentReset" type="button" class="secondary reset-button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a7.5 7.5 0 1 0 .7-7.9L4 10"/></svg><span data-i18n="common.resetExercise">Reiniciar exercício</span></button></div>
       </section>
 
       <section class="card exercise-card" id="metadataPanel" aria-labelledby="metadataTitle">
@@ -232,10 +230,10 @@
           <h3 id="metadataReviewTitle" data-i18n="common.reviewBeforeSubmission">Revisão antes da submissão</h3>
           <p id="metadataSubmitSummary" data-i18n="payment.review.summary">Construa e assine a transação para ver o resumo.</p>
           <label class="acknowledgement" for="metadataAcknowledge"><input id="metadataAcknowledge" type="checkbox" /><span data-i18n="metadata.review.acknowledgement">Conferi destinatário, valor e mensagem pública. Entendo que a metadata ficará visível na Preprod.</span></label>
-          <div class="actions"><button id="metadataSubmit" type="button" data-i18n="payment.action.submit">4. Submeter na Preprod</button><button id="metadataCheck" type="button" class="secondary" data-i18n="common.checkInclusion">Verificar inclusão</button><a id="metadataExplorer" class="button-link" target="_blank" rel="noreferrer" hidden data-i18n="common.viewCardanoscan">Ver no Cardanoscan</a></div>
+          <div class="actions"><button id="metadataSubmit" type="button" data-i18n="payment.action.submit">4. Submeter na Preprod</button><button id="metadataCheck" type="button" class="secondary" data-i18n="common.checkInclusion">5. Verificar inclusão</button><a id="metadataExplorer" class="button-link external-action-link" target="_blank" rel="noreferrer" hidden><span data-i18n="common.viewCardanoscan">Ver no Cardanoscan</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></a></div>
         </section>
         <p id="metadataCompletion" class="completion" role="status" hidden></p>
-        <div class="recovery-actions"><button id="metadataRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="metadataReset" type="button" class="secondary" hidden data-i18n="common.resetExercise">Reiniciar exercício</button></div>
+        <div class="recovery-actions"><button id="metadataRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="metadataReset" type="button" class="secondary reset-button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a7.5 7.5 0 1 0 .7-7.9L4 10"/></svg><span data-i18n="common.resetExercise">Reiniciar exercício</span></button></div>
       </section>
 
       <section class="card exercise-card" id="multisigExercise" aria-labelledby="multisigTitle">
@@ -247,7 +245,7 @@
         <div class="exercise-contract">
           <div><span data-i18n="common.objective">Objetivo</span><p data-i18n="multisig.objective">Criar um script 2-de-2, bloquear tADA e desbloquear com dois witnesses.</p></div>
           <div><span data-i18n="common.completedWhen">Concluído quando</span><p data-i18n="multisig.completedWhen">O unlock estiver incluído. O valor escolhido vai ao destino e o troco volta ao script.</p></div>
-          <div><span data-i18n="common.risk">Risco</span><p data-i18n="multisig.risk">Se uma chave estiver errada ou indisponível, o saldo bloqueado pode ficar inacessível.</p></div>
+          <div><span data-i18n="common.submissionEffect">Efeito da submissão</span><p data-i18n="multisig.effect">O lock move tADA para o script 2-de-2; o unlock consome o UTxO somente com os dois witnesses. Sem uma das chaves, o saldo pode ficar inacessível.</p></div>
         </div>
 
         <section id="multisigSetupPanel" class="subflow setup-flow" data-stage="setup" aria-busy="false" aria-labelledby="multisigSetupTitle">
@@ -293,9 +291,9 @@
             <artifact-box title="Signed lock tx CBOR" target="multisigLockSigned" description="Lock pronto para submissão." data-i18n-attr="title:artifact.multisig.lock.signed.title;description:artifact.multisig.lock.signed.description"></artifact-box>
             <artifact-box title="Lock tx hash" target="multisigLockTxHash" description="Use este hash para acompanhar a inclusão." data-i18n-attr="title:artifact.multisig.lock.hash.title;description:artifact.multisig.lock.hash.description"></artifact-box>
           </div>
-          <section class="submit-review"><h4 data-i18n="multisig.lock.review.title">Revisão do lock</h4><p id="multisigLockSubmitSummary" data-i18n="multisig.lock.review.summary">Construa e assine o lock para ver o resumo.</p><label class="acknowledgement" for="multisigLockAcknowledge"><input id="multisigLockAcknowledge" type="checkbox" /><span data-i18n="multisig.lock.acknowledgement">Conferi os dois signers e o valor. Entendo que ambos serão necessários para recuperar o saldo.</span></label><div class="actions"><button id="multisigLockSubmit" type="button" data-i18n="multisig.lock.action.submit">4. Submeter lock</button><button id="multisigLockCheck" type="button" class="secondary" data-i18n="common.checkInclusion">Verificar inclusão</button><a id="multisigLockExplorer" class="button-link" target="_blank" rel="noreferrer" hidden data-i18n="common.viewCardanoscan">Ver no Cardanoscan</a></div></section>
+          <section class="submit-review"><h4 data-i18n="multisig.lock.review.title">Revisão do lock</h4><p id="multisigLockSubmitSummary" data-i18n="multisig.lock.review.summary">Construa e assine o lock para ver o resumo.</p><label class="acknowledgement" for="multisigLockAcknowledge"><input id="multisigLockAcknowledge" type="checkbox" /><span data-i18n="multisig.lock.acknowledgement">Conferi os dois signers e o valor. Entendo que ambos serão necessários para recuperar o saldo.</span></label><div class="actions"><button id="multisigLockSubmit" type="button" data-i18n="multisig.lock.action.submit">4. Submeter lock</button><button id="multisigLockCheck" type="button" class="secondary" data-i18n="common.checkInclusion">5. Verificar inclusão</button><a id="multisigLockExplorer" class="button-link external-action-link" target="_blank" rel="noreferrer" hidden><span data-i18n="common.viewCardanoscan">Ver no Cardanoscan</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></a></div></section>
           <p id="multisigLockCompletion" class="completion" role="status" hidden></p>
-          <div class="recovery-actions"><button id="multisigLockRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="multisigLockReset" type="button" class="secondary" hidden data-i18n="multisig.lock.reset">Reiniciar lock local</button></div>
+          <div class="recovery-actions"><button id="multisigLockRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="multisigLockReset" type="button" class="secondary reset-button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a7.5 7.5 0 1 0 .7-7.9L4 10"/></svg><span data-i18n="multisig.lock.reset">Reiniciar lock local</span></button></div>
         </section>
 
         <section class="subflow" id="multisigUnlockPanel" aria-labelledby="multisigUnlockTitle">
@@ -341,9 +339,9 @@
             <artifact-box title="Signed unlock tx CBOR" target="multisigUnlockSigned" description="Só é criado após validar as duas assinaturas exigidas." data-i18n-attr="title:artifact.multisig.unlock.signed.title;description:artifact.multisig.unlock.signed.description"></artifact-box>
             <artifact-box title="Unlock tx hash" target="multisigUnlockTxHash" description="Identificador do unlock submetido." data-i18n-attr="title:artifact.multisig.unlock.hash.title;description:artifact.multisig.unlock.hash.description"></artifact-box>
           </div>
-          <section class="submit-review"><h4 data-i18n="multisig.unlock.review.title">Revisão do unlock</h4><p id="multisigUnlockSubmitSummary" data-i18n="multisig.unlock.review.summary">Construa, colete e anexe os witnesses para ver o resumo.</p><label class="acknowledgement" for="multisigUnlockAcknowledge"><input id="multisigUnlockAcknowledge" type="checkbox" /><span data-i18n="multisig.unlock.acknowledgement">Conferi UTxO, destino, valor e os dois signers. Entendo que o UTxO será consumido e o troco voltará ao script.</span></label><div class="actions"><button id="multisigUnlockSubmit" type="button" data-i18n="multisig.unlock.action.submit">4. Submeter unlock</button><button id="multisigUnlockCheck" type="button" class="secondary" data-i18n="common.checkInclusion">Verificar inclusão</button><a id="multisigUnlockExplorer" class="button-link" target="_blank" rel="noreferrer" hidden data-i18n="common.viewCardanoscan">Ver no Cardanoscan</a></div></section>
+          <section class="submit-review"><h4 data-i18n="multisig.unlock.review.title">Revisão do unlock</h4><p id="multisigUnlockSubmitSummary" data-i18n="multisig.unlock.review.summary">Construa, colete e anexe os witnesses para ver o resumo.</p><label class="acknowledgement" for="multisigUnlockAcknowledge"><input id="multisigUnlockAcknowledge" type="checkbox" /><span data-i18n="multisig.unlock.acknowledgement">Conferi UTxO, destino, valor e os dois signers. Entendo que o UTxO será consumido e o troco voltará ao script.</span></label><div class="actions"><button id="multisigUnlockSubmit" type="button" data-i18n="multisig.unlock.action.submit">4. Submeter unlock</button><button id="multisigUnlockCheck" type="button" class="secondary" data-i18n="common.checkInclusion">5. Verificar inclusão</button><a id="multisigUnlockExplorer" class="button-link external-action-link" target="_blank" rel="noreferrer" hidden><span data-i18n="common.viewCardanoscan">Ver no Cardanoscan</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></a></div></section>
           <p id="multisigUnlockCompletion" class="completion" role="status" hidden></p>
-          <div class="recovery-actions"><button id="multisigUnlockRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="multisigUnlockReset" type="button" class="secondary" hidden data-i18n="multisig.unlock.reset">Reiniciar unlock local</button></div>
+          <div class="recovery-actions"><button id="multisigUnlockRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="multisigUnlockReset" type="button" class="secondary reset-button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a7.5 7.5 0 1 0 .7-7.9L4 10"/></svg><span data-i18n="multisig.unlock.reset">Reiniciar unlock local</span></button></div>
         </section>
       </section>
 
@@ -351,19 +349,21 @@
         <header class="section-heading">
           <p class="eyebrow"><span data-i18n="common.exercise">Exercício</span> <span class="exercise-code">4A</span></p>
           <h2 id="eacMintTitle" data-i18n="eac.title">Ciclo EAC: emissão e aposentadoria</h2>
-          <p data-i18n="eac.description">Execute um exemplo Cardano inspirado no caso Brevik. A quantidade é ilustrativa e não representa a oferta alocável publicada pela Heidelberg Materials.</p>
+          <p data-i18n="eac.description">Use um asset EAC sintético para praticar emissão, aposentadoria parcial e inspeção do ledger. Quantidades e referências existem somente neste exercício.</p>
         </header>
         <div class="exercise-contract">
-          <div><span data-i18n="common.objective">Objetivo</span><p data-i18n="eac.objective">Emitir 12088322 unidades ilustrativas, aposentar 125000 e reconstruir o saldo restante de 11963322 unidades.</p></div>
-          <div><span data-i18n="common.completedWhen">Concluído quando</span><p data-i18n="eac.completedWhen">Mint e burn estiverem incluídos, com as referências externas no label 65536 e as quantidades no ledger.</p></div>
-          <div><span data-i18n="common.limit">Limite</span><p data-i18n="eac.boundary">A API valida o schema. A policy verifica somente a chave; não lê a metadata, não limita a oferta e não prova os fatos industriais.</p></div>
+          <div><span data-i18n="common.objective">Objetivo</span><p data-i18n="eac.objective">Emitir 1.000.000 unidades-base, aposentar 125.000 e confirmar o saldo restante de 875.000 no ledger.</p></div>
+          <div><span data-i18n="common.completedWhen">Concluído quando</span><p data-i18n="eac.completedWhen">Mint e burn estiverem incluídos, com as referências sintéticas no label 65536 e as quantidades conferidas no ledger.</p></div>
+          <div><span data-i18n="common.submissionEffect">Efeito da submissão</span><p data-i18n="eac.effect">A emissão cria o asset didático e publica hashes sintéticos. A aposentadoria queima parte do saldo. A policy não valida a metadata nem comprova alegações externas.</p></div>
         </div>
         <dl class="mint-spec" aria-label="Parâmetros fixos da emissão EAC" data-i18n-attr="aria-label:eac.spec.ariaLabel">
-          <div><dt data-i18n="eac.spec.assetName">Asset name</dt><dd><code>EAC-BRE-2025P01</code></dd></div>
-          <div><dt data-i18n="eac.spec.illustrativeQuantity">Quantidade ilustrativa on-chain</dt><dd><code>12088322</code></dd></div>
-          <div><dt data-i18n="eac.spec.display">Exibição</dt><dd data-i18n="eac.spec.displayValue">12.088,322 EAC</dd></div>
+          <div><dt data-i18n="eac.spec.assetName">Asset name</dt><dd><code>EAC-WORKSHOP-001</code></dd></div>
+          <div><dt data-i18n="eac.spec.ledgerQuantity">Quantidade no ledger (unidades-base)</dt><dd><code>1000000</code></dd></div>
+          <div><dt data-i18n="eac.spec.decimals">Casas decimais de exibição</dt><dd><code>3</code></dd></div>
+          <div><dt data-i18n="eac.spec.display">Quantidade exibida</dt><dd data-i18n="eac.spec.displayValue">1.000,000 EAC</dd></div>
           <div><dt data-i18n="eac.spec.metadataLabel">Metadata label</dt><dd><code>65536</code><span data-i18n="eac.spec.metadataNote">, private use CIP-10. A metadata continua pública.</span></dd></div>
         </dl>
+        <p class="spec-note" data-i18n="eac.spec.unitNote">Cardano registra quantidades inteiras. Aqui, decimals: 3 é somente uma convenção de exibição: 1 EAC exibido corresponde a 1000 unidades-base no ledger.</p>
         <div class="form-grid">
           <label class="wide" for="eacMintRecipient"><span data-i18n="eac.recipient.label">Endereço contábil que receberá o saldo</span>
             <input id="eacMintRecipient" data-session-input required readonly placeholder="Conecte a wallet" autocomplete="off" data-i18n-attr="placeholder:eac.recipient.placeholder" />
@@ -378,7 +378,7 @@
   "assurance_hash": "2222222222222222222222222222222222222222222222222222222222222222",
   "evidence_root": "3333333333333333333333333333333333333333333333333333333333333333"
 }</textarea>
-            <small data-i18n="eac.metadata.help">Os três hashes preenchidos são valores sintéticos de exemplo, não evidências reais da Heidelberg Materials ou da DNV. Use somente hexadecimal minúsculo com 64 caracteres.</small>
+            <small data-i18n="eac.metadata.help">Os três hashes são valores sintéticos sem valor probatório externo. Use somente hexadecimal minúsculo com 64 caracteres.</small>
           </label>
         </div>
         <ol class="pipeline" aria-label="Progresso da emissão EAC" data-i18n-attr="aria-label:eac.progress.ariaLabel">
@@ -398,18 +398,20 @@
           <artifact-box title="Signed EAC tx CBOR" target="eacMintSigned" description="Emissão pronta para submissão dentro da validade da transação." data-i18n-attr="title:artifact.eac.signed.title;description:artifact.eac.signed.description"></artifact-box>
           <artifact-box title="Tx hash" target="eacMintTxHash" description="Identificador para verificar quantidade, output e metadata." data-i18n-attr="title:artifact.eac.hash.title;description:artifact.eac.hash.description"></artifact-box>
         </div>
-        <section class="submit-review"><h3 data-i18n="common.reviewBeforeSubmission">Revisão antes da submissão</h3><p id="eacMintSubmitSummary" data-i18n="eac.review.summary">Construa e assine a emissão EAC para ver o resumo.</p><label class="acknowledgement" for="eacMintAcknowledge"><input id="eacMintAcknowledge" type="checkbox" /><span data-i18n="eac.acknowledgement">Conferi endereço contábil, quantidade, policy, validade e referências. Entendo que a policy não valida a metadata nem os fatos industriais externos.</span></label><div class="actions"><button id="eacMintSubmit" type="button" data-i18n="eac.action.submit">4. Submeter emissão</button><button id="eacMintCheck" type="button" class="secondary" data-i18n="common.checkInclusion">Verificar inclusão</button><a id="eacMintExplorer" class="button-link" target="_blank" rel="noreferrer" hidden data-i18n="common.viewCardanoscan">Ver no Cardanoscan</a></div></section>
+        <section class="submit-review"><h3 data-i18n="common.reviewBeforeSubmission">Revisão antes da submissão</h3><p id="eacMintSubmitSummary" data-i18n="eac.review.summary">Construa e assine a emissão EAC para ver o resumo.</p><label class="acknowledgement" for="eacMintAcknowledge"><input id="eacMintAcknowledge" type="checkbox" /><span data-i18n="eac.acknowledgement">Conferi endereço contábil, quantidade, policy, validade e referências. Entendo que a policy não valida a metadata nem comprova alegações externas.</span></label><div class="actions"><button id="eacMintSubmit" type="button" data-i18n="eac.action.submit">4. Submeter emissão</button><button id="eacMintCheck" type="button" class="secondary" data-i18n="common.checkInclusion">5. Verificar inclusão</button><a id="eacMintExplorer" class="button-link external-action-link" target="_blank" rel="noreferrer" hidden><span data-i18n="common.viewCardanoscan">Ver no Cardanoscan</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></a></div></section>
         <p id="eacMintCompletion" class="completion" role="status" hidden></p>
-        <div class="recovery-actions"><button id="eacMintRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="eacMintReset" type="button" class="secondary" hidden data-i18n="eac.reset">Reiniciar emissão</button></div>
+        <div class="recovery-actions"><button id="eacMintRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="eacMintReset" type="button" class="secondary reset-button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a7.5 7.5 0 1 0 .7-7.9L4 10"/></svg><span data-i18n="eac.reset">Reiniciar emissão</span></button></div>
 
         <section class="subflow" id="eacRetirePanel" aria-labelledby="eacRetireTitle">
-          <h3 id="eacRetireTitle"><span class="exercise-code">4A.2</span> <span data-i18n="retire.title">Aposente 125,000 EAC</span></h3>
-          <p data-i18n="retire.description">Depois que a emissão estiver incluída e indexada, queime 125000 unidades e mantenha 11963322 unidades na wallet contábil.</p>
+          <h3 id="eacRetireTitle"><span class="exercise-code">4A.2</span> <span data-i18n="retire.title">Aposentadoria parcial do EAC</span></h3>
+          <p data-i18n="retire.description">Depois da inclusão e indexação, queime 125.000 unidades-base (125,000 EAC) e devolva 875.000 unidades-base (875,000 EAC) à wallet contábil.</p>
           <dl class="mint-spec" aria-label="Parâmetros fixos da aposentadoria EAC" data-i18n-attr="aria-label:retire.spec.ariaLabel">
-            <div><dt data-i18n="retire.spec.burn">Burn</dt><dd><code>-125000</code></dd></div>
-            <div><dt data-i18n="retire.spec.retiredDisplay">Exibição aposentada</dt><dd data-i18n="retire.spec.retiredValue">125,000 EAC</dd></div>
-            <div><dt data-i18n="retire.spec.remainingBalance">Saldo restante</dt><dd data-i18n="retire.spec.remainingValue">11.963,322 EAC</dd></div>
+            <div><dt data-i18n="retire.spec.burn">Burn no ledger (unidades-base)</dt><dd><code>-125000</code></dd></div>
+            <div><dt data-i18n="retire.spec.retiredDisplay">Aposentadoria exibida</dt><dd data-i18n="retire.spec.retiredValue">125,000 EAC</dd></div>
+            <div><dt data-i18n="retire.spec.remainingBalance">Saldo no ledger (unidades-base)</dt><dd><code>875000</code></dd></div>
+            <div><dt data-i18n="retire.spec.remainingDisplay">Saldo exibido</dt><dd data-i18n="retire.spec.remainingValue">875,000 EAC</dd></div>
           </dl>
+          <p class="spec-note" data-i18n="eac.spec.unitNote">Cardano registra quantidades inteiras. Aqui, decimals: 3 é somente uma convenção de exibição: 1 EAC exibido corresponde a 1000 unidades-base no ledger.</p>
           <div class="form-grid">
             <label class="wide" for="eacRetireMetadataJson"><span data-i18n="retire.metadata.label">Metadata JSON de aposentadoria</span>
               <textarea id="eacRetireMetadataJson" data-session-input required rows="6" maxlength="4096" spellcheck="false">{
@@ -437,9 +439,9 @@
             <artifact-box title="Signed retirement tx CBOR" target="eacRetireSigned" description="Burn pronto para submissão." data-i18n-attr="title:artifact.retire.signed.title;description:artifact.retire.signed.description"></artifact-box>
             <artifact-box title="Retirement tx hash" target="eacRetireTxHash" description="Identificador para verificar burn, saldo e metadata." data-i18n-attr="title:artifact.retire.hash.title;description:artifact.retire.hash.description"></artifact-box>
           </div>
-          <section class="submit-review"><h4 data-i18n="retire.review.title">Revisão da aposentadoria</h4><p id="eacRetireSubmitSummary" data-i18n="retire.review.summary">Construa e assine a aposentadoria EAC para ver o resumo.</p><label class="acknowledgement" for="eacRetireAcknowledge"><input id="eacRetireAcknowledge" type="checkbox" /><span data-i18n="retire.acknowledgement">Conferi burn, saldo restante, policy e referências. Entendo que a rede não prova a entrega nem a declaração.</span></label><div class="actions"><button id="eacRetireSubmit" type="button" data-i18n="retire.action.submit">4. Submeter aposentadoria</button><button id="eacRetireCheck" type="button" class="secondary" data-i18n="common.checkInclusion">Verificar inclusão</button><a id="eacRetireExplorer" class="button-link" target="_blank" rel="noreferrer" hidden data-i18n="common.viewCardanoscan">Ver no Cardanoscan</a></div></section>
+          <section class="submit-review"><h4 data-i18n="retire.review.title">Revisão da aposentadoria</h4><p id="eacRetireSubmitSummary" data-i18n="retire.review.summary">Construa e assine a aposentadoria EAC para ver o resumo.</p><label class="acknowledgement" for="eacRetireAcknowledge"><input id="eacRetireAcknowledge" type="checkbox" /><span data-i18n="retire.acknowledgement">Conferi burn, saldo restante, policy e referências. Entendo que a rede não prova a entrega nem a declaração.</span></label><div class="actions"><button id="eacRetireSubmit" type="button" data-i18n="retire.action.submit">4. Submeter aposentadoria</button><button id="eacRetireCheck" type="button" class="secondary" data-i18n="common.checkInclusion">5. Verificar inclusão</button><a id="eacRetireExplorer" class="button-link external-action-link" target="_blank" rel="noreferrer" hidden><span data-i18n="common.viewCardanoscan">Ver no Cardanoscan</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></a></div></section>
           <p id="eacRetireCompletion" class="completion" role="status" hidden></p>
-          <div class="recovery-actions"><button id="eacRetireRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="eacRetireReset" type="button" class="secondary" hidden data-i18n="retire.reset">Reiniciar aposentadoria</button></div>
+          <div class="recovery-actions"><button id="eacRetireRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="eacRetireReset" type="button" class="secondary reset-button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a7.5 7.5 0 1 0 .7-7.9L4 10"/></svg><span data-i18n="retire.reset">Reiniciar aposentadoria</span></button></div>
         </section>
       </section>
 
@@ -492,9 +494,9 @@
           <artifact-box title="Signed mint tx CBOR" target="mintSigned" description="Mint pronto para submissão enquanto a policy estiver válida." data-i18n-attr="title:artifact.mint.signed.title;description:artifact.mint.signed.description"></artifact-box>
           <artifact-box title="Tx hash" target="mintTxHash" description="Identificador para verificar o asset na Preprod." data-i18n-attr="title:artifact.mint.hash.title;description:artifact.mint.hash.description"></artifact-box>
         </div>
-        <section class="submit-review"><h3 data-i18n="common.reviewBeforeSubmission">Revisão antes da submissão</h3><p id="mintSubmitSummary" data-i18n="mint.review.summary">Construa e assine o mint para ver o resumo.</p><label class="acknowledgement" for="mintAcknowledge"><input id="mintAcknowledge" type="checkbox" /><span data-i18n="mint.acknowledgement">Conferi destinatário, quantidade, policy e validade. Entendo que a submissão cria o asset e paga taxa na Preprod.</span></label><div class="actions"><button id="mintSubmit" type="button" data-i18n="mint.action.submit">4. Submeter mint</button><button id="mintCheck" type="button" class="secondary" data-i18n="common.checkInclusion">Verificar inclusão</button><a id="mintExplorer" class="button-link" target="_blank" rel="noreferrer" hidden data-i18n="common.viewCardanoscan">Ver no Cardanoscan</a></div></section>
+        <section class="submit-review"><h3 data-i18n="common.reviewBeforeSubmission">Revisão antes da submissão</h3><p id="mintSubmitSummary" data-i18n="mint.review.summary">Construa e assine o mint para ver o resumo.</p><label class="acknowledgement" for="mintAcknowledge"><input id="mintAcknowledge" type="checkbox" /><span data-i18n="mint.acknowledgement">Conferi destinatário, quantidade, policy e validade. Entendo que a submissão cria o asset e paga taxa na Preprod.</span></label><div class="actions"><button id="mintSubmit" type="button" data-i18n="mint.action.submit">4. Submeter mint</button><button id="mintCheck" type="button" class="secondary" data-i18n="common.checkInclusion">5. Verificar inclusão</button><a id="mintExplorer" class="button-link external-action-link" target="_blank" rel="noreferrer" hidden><span data-i18n="common.viewCardanoscan">Ver no Cardanoscan</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 5h5v5M19 5l-8 8"/><path d="M19 13v5a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg></a></div></section>
         <p id="mintCompletion" class="completion" role="status" hidden></p>
-        <div class="recovery-actions"><button id="mintRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="mintReset" type="button" class="secondary" hidden data-i18n="common.resetExercise">Reiniciar exercício</button></div>
+        <div class="recovery-actions"><button id="mintRetry" type="button" hidden data-i18n="common.tryAgain">Tentar novamente</button><button id="mintReset" type="button" class="secondary reset-button" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4v6h6"/><path d="M5.5 15a7.5 7.5 0 1 0 .7-7.9L4 10"/></svg><span data-i18n="common.resetExercise">Reiniciar exercício</span></button></div>
       </section>
 
       <p id="clipboardStatus" class="sr-only" role="status" aria-live="polite"></p>
@@ -518,6 +520,26 @@
     </button>
     <p id="technicalLogAnnouncement" class="sr-only" role="status" aria-live="polite"></p>
 
+    <dialog
+      id="stepCodeDialog"
+      class="step-code-dialog"
+      aria-labelledby="stepCodeTitle"
+      aria-describedby="stepCodeDescription stepCodeProvenance"
+    >
+      <div class="step-code-shell">
+        <header class="step-code-header">
+          <div>
+            <p class="step-code-eyebrow" data-i18n="stepCode.eyebrow">Código da etapa</p>
+            <h2 id="stepCodeTitle">Código da etapa</h2>
+            <p id="stepCodeDescription"></p>
+            <p id="stepCodeProvenance" data-i18n="stepCode.provenance">Trecho extraído do código-fonte real executado pela Workbench.</p>
+          </div>
+          <button id="stepCodeClose" type="button" data-i18n="stepCode.close">Fechar</button>
+        </header>
+        <div id="stepCodeExcerpts" class="step-code-excerpts"></div>
+      </div>
+    </dialog>
+
     <dialog id="technicalLogDialog" class="technical-log-dialog" aria-labelledby="technicalLogTitle" aria-describedby="technicalLogDescription">
       <div class="technical-log-shell">
         <header class="technical-log-header">
@@ -534,8 +556,20 @@
     <template id="artifactTemplate">
       <details class="artifact">
         <summary class="artifact-header">
-          <span><strong class="artifact-title"></strong><small class="artifact-description"></small></span>
-          <button type="button" class="copy-button" data-i18n="artifact.copy">Copiar</button>
+          <span>
+            <span class="artifact-title-line">
+              <strong class="artifact-title"></strong>
+              <span class="artifact-unread-marker" aria-hidden="true" hidden></span>
+              <span class="artifact-unread-label sr-only" data-i18n="artifact.unread" hidden>Atualizado, ainda não lido</span>
+            </span>
+            <small class="artifact-description"></small>
+          </span>
+          <button type="button" class="copy-button">
+            <svg class="copy-button-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            <svg class="copy-button-success-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>
+            <svg class="copy-button-error-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg>
+            <span class="copy-button-label sr-only" data-i18n="artifact.copy">Copiar</span>
+          </button>
         </summary>
         <textarea spellcheck="false"></textarea>
       </details>

@@ -14,7 +14,7 @@ import {
   TxOut,
 } from "@evolution-sdk/evolution"
 
-import { mergeWitnesses } from "./workbench-ui.js"
+import { artifactUnreadAfterUpdate, mergeWitnesses } from "./workbench-ui.js"
 
 const makeUnsigned = (fee = 170_000n, requiredSigners: Array<KeyHash.KeyHash> = []) => {
   const paymentKey = KeyHash.fromHex("1".repeat(56))
@@ -54,6 +54,14 @@ const signBody = (body: TransactionBody.TransactionBody, privateKey: PrivateKey.
     cbor: TransactionWitnessSet.toCBORHex(TransactionWitnessSet.fromVKeyWitnesses([witness])),
   }
 }
+
+test("artifact updates remain unread until their output is opened", () => {
+  assert.equal(artifactUnreadAfterUpdate(false, "", "new output", false), true)
+  assert.equal(artifactUnreadAfterUpdate(true, "new output", "new output", false), true)
+  assert.equal(artifactUnreadAfterUpdate(true, "new output", "new output", true), false)
+  assert.equal(artifactUnreadAfterUpdate(true, "new output", "updated output", true), false)
+  assert.equal(artifactUnreadAfterUpdate(true, "new output", "", false), false)
+})
 
 test("merge validates signatures and required multisig key hashes", () => {
   const signerAKey = PrivateKey.fromBytes(PrivateKey.generate())

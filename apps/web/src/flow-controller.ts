@@ -16,7 +16,13 @@ import { bindFlowView } from "./flow-bindings.js"
 import { toFlowError } from "./flow-errors.js"
 import { HttpError } from "./http.js"
 import { flowInputFingerprint, validateFlowInputs } from "./flow-inputs.js"
-import { createFlowView, renderFlow, type FlowReadiness, type FlowView } from "./flow-renderer.js"
+import {
+  createFlowView,
+  renderFlow,
+  type CompletionKind,
+  type FlowReadiness,
+  type FlowView,
+} from "./flow-renderer.js"
 import {
   createFlowState,
   failAction,
@@ -51,6 +57,7 @@ export type FlowControllerConfig = FlowActionDependencies & {
   }
   review: (details: Record<string, unknown> | undefined, locale: Locale) => MessageRef
   completion: MessageRef
+  completionKind: CompletionKind
   locale: () => Locale
   readiness: () => FlowReadiness
   onChange: () => void
@@ -105,10 +112,13 @@ export class FlowController {
 
   restore(state: FlowState) {
     if (this.state.busyAction || state.requiredWitnesses !== this.config.witnessIds.length) return
+    const emptyDraft = state.stage === "draft" && !hasTransactionArtifacts(state)
     this.state = {
       ...state,
+      inputFingerprint: emptyDraft ? this.currentInputFingerprint() : state.inputFingerprint,
       busyAction: undefined,
       error: undefined,
+      notice: emptyDraft ? undefined : state.notice,
       acknowledgedSignedFingerprint: undefined,
     }
     if (this.signAcknowledgement) this.signAcknowledgement.checked = false
@@ -338,7 +348,19 @@ export class FlowController {
     this.revision += 1
     if (this.signAcknowledgement) this.signAcknowledgement.checked = false
     const fingerprint = this.currentInputFingerprint()
-    if (this.state.stage !== "draft" || this.state.inputFingerprint !== fingerprint) {
+    if (this.state.inputFingerprint === fingerprint) {
+      this.commit()
+      return
+    }
+
+    if (this.state.stage === "draft" && !hasTransactionArtifacts(this.state)) {
+      this.state = {
+        ...this.state,
+        inputFingerprint: fingerprint,
+        error: undefined,
+        notice: undefined,
+      }
+    } else {
       this.state = invalidateForInputs(
         this.state,
         fingerprint,
@@ -378,6 +400,7 @@ export class FlowController {
       this.config.readiness(),
       this.config.review(details, locale),
       this.config.completion,
+      this.config.completionKind,
       locale,
     )
 
@@ -388,6 +411,14 @@ export class FlowController {
     if (canReview && !this.signAcknowledgement.checked) this.view.actions.sign.disabled = true
   }
 }
+
+const hasTransactionArtifacts = (state: FlowState): boolean => Boolean(
+  state.artifacts.details ||
+  state.artifacts.unsigned ||
+  state.artifacts.witnesses.some(Boolean) ||
+  state.artifacts.signed ||
+  state.artifacts.txHash,
+)
 
 const isAmbiguousSubmissionError = (error: unknown): boolean =>
   !(error instanceof HttpError) || error.status === 0 || error.status >= 500

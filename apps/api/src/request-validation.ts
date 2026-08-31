@@ -1,6 +1,8 @@
 import { Address, KeyHash, Transaction } from "@evolution-sdk/evolution"
 
 import { expectKeyHash } from "../../../packages/cardano/src/internal/addresses.js"
+import { WORKSHOP_NETWORK_CONFIG } from "../../../packages/cardano/src/internal/network-config.js"
+import { validateTransactionVKeyWitnesses } from "../../../packages/cardano/src/internal/transaction-witnesses.js"
 import { messageRef } from "../../../packages/localization/src/index.js"
 import type {
   EacIssuanceMetadata,
@@ -140,9 +142,9 @@ export const parseMultisigUnlockRequest = (body: MultisigUnlockRequest = {}): Mu
 
 export const parseSubmitTxRequest = (body: SubmitTxRequest = {}): string => {
   const cbor = requireHex(body.signedTxCbor, "signedTxCbor")
+  let transaction: Transaction.Transaction
   try {
-    Transaction.fromCBORHex(cbor)
-    return cbor
+    transaction = Transaction.fromCBORHex(cbor)
   } catch {
     throw new RequestValidationError(
       messageRef("api.validation.signedTransaction"),
@@ -150,6 +152,25 @@ export const parseSubmitTxRequest = (body: SubmitTxRequest = {}): string => {
       messageRef("api.validation.signedTransaction.guidance"),
     )
   }
+
+  try {
+    validateTransactionVKeyWitnesses(transaction)
+  } catch {
+    throw new RequestValidationError(
+      messageRef("api.validation.signedTransaction"),
+      "signedTxCbor",
+      messageRef("api.validation.signedTransaction.guidance"),
+    )
+  }
+
+  if (transaction.body.outputs.some((output) => output.address.networkId !== WORKSHOP_NETWORK_CONFIG.networkId)) {
+    throw new RequestValidationError(
+      messageRef("api.validation.submissionNetwork"),
+      "signedTxCbor",
+      messageRef("api.validation.submissionNetwork.guidance"),
+    )
+  }
+  return cbor
 }
 
 export const parseMultisigInputVerificationRequest = (

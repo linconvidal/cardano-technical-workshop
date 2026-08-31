@@ -5,6 +5,7 @@ import {
   Address,
   Assets,
   KeyHash,
+  PrivateKey,
   ScriptHash,
   Transaction,
   TransactionBody,
@@ -31,6 +32,21 @@ const keyAddress = (keyByte: string, networkId = 0, stakeByte?: string) => Addre
   paymentCredential: KeyHash.fromHex(keyByte.repeat(56)),
   stakingCredential: stakeByte ? KeyHash.fromHex(stakeByte.repeat(56)) : undefined,
 }))
+
+const signedTransactionCbor = (
+  transaction: Transaction.Transaction,
+  privateKeys: ReadonlyArray<PrivateKey.PrivateKey>,
+): string => {
+  const bodyHash = TransactionBody.toHash(transaction.body).hash
+  const witnesses = privateKeys.map((privateKey) => new TransactionWitnessSet.VKeyWitness({
+    vkey: PrivateKey.toPublicKey(privateKey),
+    signature: PrivateKey.sign(privateKey, bodyHash),
+  }))
+  return Transaction.addVKeyWitnessesHex(
+    Transaction.toCBORHex(transaction),
+    TransactionWitnessSet.toCBORHex(TransactionWitnessSet.fromVKeyWitnesses(witnesses)),
+  )
+}
 
 test("missing request bodies produce a structured validation error", () => {
   assert.throws(() => parsePaymentRequest(), RequestValidationError)
@@ -146,7 +162,7 @@ test("rejects malformed or expanded EAC issuance metadata", () => {
   for (const value of [null, [], "metadata"]) {
     assert.throws(() => request(JSON.stringify(value)), /objeto JSON/)
   }
-  assert.throws(() => request(JSON.stringify({ ...base, quantity: "12088322" })), /exatamente/)
+  assert.throws(() => request(JSON.stringify({ ...base, quantity: "1000000" })), /exatamente/)
   const { evidence_root: _omitted, ...missingKey } = base
   assert.throws(() => request(JSON.stringify(missingKey)), /exatamente/)
   assert.throws(() => request(JSON.stringify({ ...base, version: "1" })), /version 1/)
@@ -157,7 +173,7 @@ test("rejects malformed or expanded EAC issuance metadata", () => {
   assert.throws(() => request(JSON.stringify({ ...base, evidence_root: "A".repeat(64) })), /hexadecimais minúsculos/)
 })
 
-test("EAC issuance keeps the illustrative balance in the connected wallet", () => {
+test("EAC issuance keeps the workshop balance in the connected wallet", () => {
   const metadataJson = JSON.stringify({
     version: 1,
     unit: "EAC",
@@ -231,25 +247,45 @@ test("rejects two multisig addresses backed by the same payment key", () => {
   )
 })
 
-test("normalizes transaction hashes and validates signed transaction CBOR", () => {
-  const address = Address.fromBech32(keyAddress("6"))
-  const transaction = new Transaction.Transaction({
-    body: new TransactionBody.TransactionBody({
-      inputs: [new TransactionInput.TransactionInput({
-        transactionId: TransactionHash.fromHex("a".repeat(64)),
-        index: 0n,
-      })],
-      outputs: [new TxOut.TransactionOutput({ address, assets: Assets.fromLovelace(2_000_000n) })],
-      fee: 170_000n,
-    }),
+test("normalizes transaction hashes and requires verified signed transaction CBOR", () => {
+  const signerKey = PrivateKey.fromBytes(PrivateKey.generate())
+  const secondSignerKey = PrivateKey.fromBytes(PrivateKey.generate())
+  const signerHash = KeyHash.fromVKey(PrivateKey.toPublicKey(signerKey))
+  const secondSignerHash = KeyHash.fromVKey(PrivateKey.toPublicKey(secondSignerKey))
+  const transactionBody = (networkId = 0, requiredSigners = [signerHash]) => new TransactionBody.TransactionBody({
+    inputs: [new TransactionInput.TransactionInput({
+      transactionId: TransactionHash.fromHex("a".repeat(64)),
+      index: 0n,
+    })],
+    outputs: [new TxOut.TransactionOutput({
+      address: Address.fromBech32(keyAddress("6", networkId)),
+      assets: Assets.fromLovelace(2_000_000n),
+    })],
+    fee: 170_000n,
+    requiredSigners: requiredSigners as [KeyHash.KeyHash, ...Array<KeyHash.KeyHash>],
+  })
+  const transaction = (body: TransactionBody.TransactionBody, isValid = true) => new Transaction.Transaction({
+    body,
     witnessSet: TransactionWitnessSet.empty(),
-    isValid: true,
+    isValid,
     auxiliaryData: null,
   })
-  const cbor = Transaction.toCBORHex(transaction)
+
+  const unsigned = transaction(transactionBody())
+  const signedCbor = signedTransactionCbor(unsigned, [signerKey])
+  const mainnetCbor = signedTransactionCbor(transaction(transactionBody(1)), [signerKey])
+  const incompleteCbor = signedTransactionCbor(
+    transaction(transactionBody(0, [signerHash, secondSignerHash])),
+    [signerKey],
+  )
+  const markedInvalidCbor = signedTransactionCbor(transaction(transactionBody(), false), [signerKey])
 
   assert.equal(parseTransactionHash("A".repeat(64)), "a".repeat(64))
-  assert.equal(parseSubmitTxRequest({ signedTxCbor: `0x${cbor}` }), cbor)
+  assert.equal(parseSubmitTxRequest({ signedTxCbor: `0x${signedCbor}` }), signedCbor)
+  assert.throws(() => parseSubmitTxRequest({ signedTxCbor: Transaction.toCBORHex(unsigned) }), /transação Cardano válida/)
+  assert.throws(() => parseSubmitTxRequest({ signedTxCbor: incompleteCbor }), /transação Cardano válida/)
+  assert.throws(() => parseSubmitTxRequest({ signedTxCbor: markedInvalidCbor }), /transação Cardano válida/)
+  assert.throws(() => parseSubmitTxRequest({ signedTxCbor: mainnetCbor }), /fora da rede Preprod/)
   assert.throws(() => parseTransactionHash("xyz"), /64 caracteres/)
   assert.throws(() => parseSubmitTxRequest({ signedTxCbor: "123" }), /CBOR hexadecimal/)
   assert.throws(() => parseSubmitTxRequest({ signedTxCbor: "00" }), /transação Cardano válida/)

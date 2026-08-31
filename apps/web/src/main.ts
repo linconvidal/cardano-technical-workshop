@@ -7,6 +7,7 @@ import {
   type MessageRef,
 } from "../../../packages/localization/src/index.js"
 import { hydrateExerciseLayouts } from "./exercise-layout.js"
+import { ExerciseNavController } from "./exercise-nav.js"
 import { MessageError } from "./flow-errors.js"
 import { createLocaleSelector, LocaleController } from "./locale-controller.js"
 import { MultisigSetupController } from "./multisig-setup.js"
@@ -18,6 +19,7 @@ import {
 } from "./readiness.js"
 import { populateWalletOptions, renderReadiness } from "./readiness-view.js"
 import { SessionController } from "./session-controller.js"
+import { StepCodeController } from "./step-code-controller.js"
 import { TechnicalLogController } from "./technical-log.js"
 import { createWorkbenchFlows } from "./workbench-flows.js"
 import {
@@ -25,6 +27,7 @@ import {
   hydrateArtifactBoxes,
   rerenderArtifactBoxes,
   select,
+  selectWithin,
 } from "./workbench-ui.js"
 import { connectWallet, type WalletSession } from "./wallet.js"
 
@@ -32,6 +35,8 @@ const localeController = new LocaleController()
 hydrateArtifactBoxes(localeController.locale)
 hydrateExerciseLayouts()
 createLocaleSelector(localeController)
+const exerciseNav = new ExerciseNavController()
+const stepCode = new StepCodeController(() => localeController.locale)
 
 const walletNameInput = select<HTMLSelectElement>("#walletName")
 const connectWalletButton = select<HTMLButtonElement>("#connectWallet")
@@ -59,6 +64,7 @@ const flowControllers = createWorkbenchFlows({
     walletConnected: Boolean(walletSession),
     canBuild: canBuildTransactions(readiness),
     backendReady: Boolean(readiness.response?.ok),
+    network: readiness.response?.network,
   }),
   eacRetirementReadiness: () => ({
     walletConnected: Boolean(walletSession),
@@ -66,11 +72,13 @@ const flowControllers = createWorkbenchFlows({
       canBuildTransactions(readiness) && flowControllers.eacMint.snapshot().stage === "included",
     ),
     backendReady: Boolean(readiness.response?.ok),
+    network: readiness.response?.network,
   }),
   multisigLockReadiness: () => ({
     walletConnected: Boolean(walletSession),
     canBuild: Boolean(canBuildTransactions(readiness) && multisigSetup?.isReadyForLock()),
     backendReady: Boolean(readiness.response?.ok),
+    network: readiness.response?.network,
   }),
   scriptSpendReadiness: () => ({
     walletConnected: Boolean(walletSession),
@@ -78,6 +86,7 @@ const flowControllers = createWorkbenchFlows({
       walletSession && readiness.response?.ok && multisigSetup?.isReadyForUnlockBuild(),
     ),
     backendReady: Boolean(readiness.response?.ok),
+    network: readiness.response?.network,
   }),
   multisigSetupReady: () => Boolean(multisigSetup?.isReadyForLock()),
   onChange: () => {
@@ -142,7 +151,11 @@ async function handleConnectWallet() {
   setReadinessStatus(messageRef("wallet.status.authorizing"), "info")
 
   try {
-    walletSession = await connectWallet(providerKey)
+    const network = readiness.response?.network
+    if (!network) {
+      throw new MessageError("wallet_network_configuration", messageRef("wallet.error.networkConfiguration"))
+    }
+    walletSession = await connectWallet(providerKey, network)
     addressOutput.textContent = `${walletSession.providerName}: ${walletSession.address}`
     setDefaultAddresses(walletSession.address)
     invalidateWalletBoundFlows(previousAddress, walletSession.address)
@@ -224,6 +237,7 @@ function setDefaultAddresses(address: string) {
 function refreshControllers() {
   Object.values(flowControllers).forEach((controller) => controller.refreshReadiness())
   multisigSetup?.refreshReadiness()
+  exerciseNav.refresh()
 }
 
 function rerenderLocalizedSurfaces() {
@@ -237,12 +251,11 @@ function rerenderLocalizedSurfaces() {
   Object.values(flowControllers).forEach((controller) => controller.rerenderForLocale())
   multisigSetup?.rerenderForLocale()
   sessionController?.rerenderForLocale()
+  exerciseNav.refresh()
+  stepCode.rerenderForLocale()
   technicalLog.rerenderForLocale()
   renderClipboardStatus()
-  document.querySelectorAll<HTMLButtonElement>("[data-copy-target]").forEach((button) => {
-    if (button.dataset.copyState === "pending") return
-    button.textContent = formatMessage(messageRef("clipboard.copy"), localeController.locale)
-  })
+  document.querySelectorAll<HTMLButtonElement>("[data-copy-target]").forEach(renderCopyButton)
 }
 
 function requireWallet(): WalletSession {
@@ -252,20 +265,24 @@ function requireWallet(): WalletSession {
 
 function bindCopyButtons() {
   document.querySelectorAll<HTMLButtonElement>("[data-copy-target]").forEach((button) => {
-    button.textContent = formatMessage(messageRef("clipboard.copy"), localeController.locale)
+    button.dataset.copyState = "idle"
+    renderCopyButton(button)
     button.addEventListener("click", () => {
       const target = button.dataset.copyTarget!
       const titleKey = button.dataset.artifactTitleKey as MessageKey
       button.dataset.copyState = "pending"
+      renderCopyButton(button)
       void copyArtifact(target)
         .then(() => {
-          button.textContent = formatMessage(messageRef("clipboard.copied"), localeController.locale)
+          button.dataset.copyState = "success"
+          renderCopyButton(button)
           clipboardState = { result: "success", titleKey }
           renderClipboardStatus()
           log(messageRef("clipboard.log.copied", { target }))
         })
         .catch((error) => {
-          button.textContent = formatMessage(messageRef("clipboard.failed"), localeController.locale)
+          button.dataset.copyState = "failed"
+          renderCopyButton(button)
           const errorRef = error instanceof MessageError ? error.messageRef : messageRef("clipboard.error.generic")
           clipboardState = { result: "failed", titleKey, error: errorRef }
           renderClipboardStatus()
@@ -273,10 +290,22 @@ function bindCopyButtons() {
         })
         .finally(() => window.setTimeout(() => {
           button.dataset.copyState = "idle"
-          button.textContent = formatMessage(messageRef("clipboard.copy"), localeController.locale)
+          renderCopyButton(button)
         }, 2_000))
     })
   })
+}
+
+function renderCopyButton(button: HTMLButtonElement) {
+  const state = button.dataset.copyState
+  const key = state === "success"
+    ? "clipboard.copied"
+    : state === "failed"
+      ? "clipboard.failed"
+      : "clipboard.copy"
+  const label = formatMessage(messageRef(key), localeController.locale)
+  selectWithin<HTMLElement>(button, ".copy-button-label").textContent = label
+  button.title = label
 }
 
 function renderClipboardStatus() {

@@ -24,12 +24,12 @@ const fixtureMetadata = {
   evidence_root: "3".repeat(64),
 }
 
-test("EAC issuance constants match the ADR-002 accounting unit", () => {
-  assert.equal(EAC_ASSET_NAME, "EAC-BRE-2025P01")
-  assert.equal(EAC_ISSUANCE_AMOUNT, 12_088_322n)
+test("EAC issuance constants use the synthetic workshop asset", () => {
+  assert.equal(EAC_ASSET_NAME, "EAC-WORKSHOP-001")
+  assert.equal(EAC_ISSUANCE_AMOUNT, 1_000_000n)
   assert.equal(EAC_METADATA_LABEL, 65_536n)
   assert.equal(EAC_RETIREMENT_AMOUNT, 125_000n)
-  assert.equal(EAC_REMAINING_AMOUNT, 11_963_322n)
+  assert.equal(EAC_REMAINING_AMOUNT, 875_000n)
 })
 
 test("EAC issuance metadata contains exactly the raw evidence schema", () => {
@@ -67,7 +67,7 @@ test("EAC retirement metadata links declaration and delivery without accounting 
 test("EAC retirement precondition does not collide with the tADA insufficient-funds classifier", () => {
   const error = eacRetirementIndexedAmountError(0n)
 
-  assert.match(error.message, /12088322 indexed EAC units/)
+  assert.match(error.message, /1000000 indexed EAC base units/)
   assert.doesNotMatch(error.message, /insufficient|not enough|balance/i)
 })
 

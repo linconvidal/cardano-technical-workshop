@@ -16,19 +16,15 @@ const memoryStorage = (initial?: string): Storage => {
   }
 }
 
-test("Portuguese is the default regardless of browser languages", () => {
-  const controller = new LocaleController({
-    storage: memoryStorage(),
-    navigatorLanguages: ["en-US", "en"],
-  })
+test("Portuguese is the default when no preference is stored", () => {
+  const controller = new LocaleController({ storage: memoryStorage() })
 
   assert.equal(controller.locale, "pt-BR")
 })
 
-test("a persisted locale is restored and explicit changes notify without replacing state", () => {
+test("a persisted locale is restored and explicit changes notify subscribers", () => {
   const storage = memoryStorage("en")
   const controller = new LocaleController({ storage })
-  const stableState = { input: "unchanged", stage: "merged", artifact: "00ff" }
   const notifications: Array<string> = []
   controller.subscribe((locale, previous) => notifications.push(`${previous}:${locale}`))
 
@@ -37,5 +33,4 @@ test("a persisted locale is restored and explicit changes notify without replaci
 
   assert.equal(storage.getItem(LOCALE_STORAGE_KEY), "pt-BR")
   assert.deepEqual(notifications, ["en:pt-BR"])
-  assert.deepEqual(stableState, { input: "unchanged", stage: "merged", artifact: "00ff" })
 })

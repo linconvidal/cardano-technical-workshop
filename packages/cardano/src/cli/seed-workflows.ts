@@ -1,7 +1,6 @@
 import {
   Address,
   Assets,
-  Client,
   KeyHash,
   NativeScripts,
   ScriptHash,
@@ -11,16 +10,15 @@ import {
   TransactionMetadatum,
   TransactionWitnessSet,
   UTxO,
-  preprod,
 } from "@evolution-sdk/evolution"
 
 import { credentialToHex, expectKeyHash } from "../internal/addresses.js"
 import {
-  BLOCKFROST_PREPROD_URL,
   deriveAddressFromSeed,
-  loadBlockfrostProjectId,
   loadMnemonic,
+  makeWorkshopBlockfrostClient,
 } from "../internal/blockfrost-client.js"
+import { WORKSHOP_NETWORK_CONFIG } from "../internal/network-config.js"
 import { bytesToHex, textToAssetNameBytes } from "../internal/serialization.js"
 import { cip25TokenMetadata } from "../workshop/03-mint-cip25.js"
 import {
@@ -45,11 +43,7 @@ export const describeWallet = () => {
 }
 
 export const sendAda = async (destinationBech32: string, lovelace: bigint) => {
-  const client = Client.make(preprod)
-    .withBlockfrost({
-      baseUrl: BLOCKFROST_PREPROD_URL,
-      projectId: loadBlockfrostProjectId(),
-    })
+  const client = makeWorkshopBlockfrostClient()
     .withSeed({
       mnemonic: loadMnemonic(),
       accountIndex: 0,
@@ -67,11 +61,7 @@ export const sendAda = async (destinationBech32: string, lovelace: bigint) => {
 
 export const buildPaymentCborFromSeedAddress = async (destinationBech32: string, lovelace: bigint) => {
   const userAddressBech32 = Address.toBech32(deriveAddressFromSeed())
-  const result = await Client.make(preprod)
-    .withBlockfrost({
-      baseUrl: BLOCKFROST_PREPROD_URL,
-      projectId: loadBlockfrostProjectId(),
-    })
+  const result = await makeWorkshopBlockfrostClient()
     .withAddress(userAddressBech32)
     .newTx()
     .payToAddress({ address: Address.fromBech32(destinationBech32), assets: Assets.fromLovelace(lovelace) })
@@ -87,11 +77,7 @@ export const buildPaymentCborWithMetadataFromSeedAddress = async (
   message: string,
 ) => {
   const metadata = TransactionMetadatum.fromEntries([["msg", message]])
-  const result = await Client.make(preprod)
-    .withBlockfrost({
-      baseUrl: BLOCKFROST_PREPROD_URL,
-      projectId: loadBlockfrostProjectId(),
-    })
+  const result = await makeWorkshopBlockfrostClient()
     .withAddress(Address.toBech32(deriveAddressFromSeed()))
     .newTx()
     .payToAddress({ address: Address.fromBech32(destinationBech32), assets: Assets.fromLovelace(lovelace) })
@@ -101,7 +87,7 @@ export const buildPaymentCborWithMetadataFromSeedAddress = async (
   return Transaction.toCBORHex(transaction)
 }
 
-export const buildTwoSignerMultisigScript = (
+const buildTwoSignerMultisigScript = (
   localAddress: Address.Address,
   secondSignerBech32: string,
 ): NativeScripts.NativeScript => twoSignerScript(Address.toBech32(localAddress), secondSignerBech32)
@@ -135,11 +121,7 @@ export const buildMultisigPartialCbor = async (
   lovelace: bigint,
   scriptUtxoOutRef: string,
 ) => {
-  const client = Client.make(preprod)
-    .withBlockfrost({
-      baseUrl: BLOCKFROST_PREPROD_URL,
-      projectId: loadBlockfrostProjectId(),
-    })
+  const client = makeWorkshopBlockfrostClient()
     .withSeed({
       mnemonic: loadMnemonic(),
       accountIndex: 0,
@@ -192,11 +174,7 @@ export const mintCip25 = async (
   image: string,
   description: string,
 ) => {
-  const client = Client.make(preprod)
-    .withBlockfrost({
-      baseUrl: BLOCKFROST_PREPROD_URL,
-      projectId: loadBlockfrostProjectId(),
-    })
+  const client = makeWorkshopBlockfrostClient()
     .withSeed({
       mnemonic: loadMnemonic(),
       accountIndex: 0,
@@ -205,13 +183,14 @@ export const mintCip25 = async (
   const recipientAddress = Address.fromBech32(recipientBech32)
   const localKeyHash = expectKeyHash(localAddress.paymentCredential, "local payment credential")
   const signerScript = NativeScripts.makeScriptPubKey(KeyHash.toBytes(localKeyHash))
-  const expiryScript = NativeScripts.makeInvalidHereafter(Time.getSlotAt(MINT_POLICY_TTL_MS, "Preprod"))
+  const expiresAt = BigInt(Date.now() + MINT_POLICY_TTL_MS)
+  const expirySlot = Time.unixTimeToSlot(expiresAt, WORKSHOP_NETWORK_CONFIG.evolutionNetwork.slotConfig)
+  const expiryScript = NativeScripts.makeInvalidHereafter(expirySlot)
   const mintPolicy = NativeScripts.makeScriptAll([signerScript.script, expiryScript.script])
   const policyId = ScriptHash.fromScript(mintPolicy)
   const policyIdHex = ScriptHash.toHex(policyId)
   const assetNameBytes = textToAssetNameBytes(tokenName)
   const assetNameHex = bytesToHex(assetNameBytes)
-  const expiresAt = BigInt(Date.now() + MINT_POLICY_TTL_MS)
   const metadata = TransactionMetadatum.fromEntries([
     [ScriptHash.toBytes(policyId), TransactionMetadatum.fromEntries([[assetNameBytes, cip25TokenMetadata(metadataName, image, description)]])],
     ["version", 2n],
@@ -235,11 +214,7 @@ export const mintCip25 = async (
 }
 
 export const partialSignCbor = async (unsignedTxCbor: string) => {
-  const client = Client.make(preprod)
-    .withBlockfrost({
-      baseUrl: BLOCKFROST_PREPROD_URL,
-      projectId: loadBlockfrostProjectId(),
-    })
+  const client = makeWorkshopBlockfrostClient()
     .withSeed({
       mnemonic: loadMnemonic(),
       accountIndex: 0,

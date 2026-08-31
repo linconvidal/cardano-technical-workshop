@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "apps/**/*.test.ts",
+    "packages/**/*.test.ts"
+  ],
+  "project": [
+    "apps/**/*.{ts,d.ts}",
+    "packages/**/*.{ts,d.ts}",
+    "scripts/*.mjs"
+  ],
+  "ignoreBinaries": ["gio"]
+}

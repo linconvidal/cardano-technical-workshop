@@ -7,7 +7,7 @@ import {
   type MessageKey,
 } from "./catalog.js"
 
-export type MessageValue = string | number | boolean
+type MessageValue = string | number | boolean
 export type MessageValues = Readonly<Record<string, MessageValue>>
 
 export type MessageRef<K extends MessageKey = MessageKey> = {

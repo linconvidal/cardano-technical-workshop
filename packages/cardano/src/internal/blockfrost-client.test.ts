@@ -31,7 +31,8 @@ test("readiness reports missing configuration without calling the network", asyn
 test("readiness validates the configured Preprod provider", async () => {
   process.env.BLOCKFROST_PROJECT_ID = "preprod-test"
 
-  const result = await getBlockfrostReadiness(async (_input, init) => {
+  const result = await getBlockfrostReadiness(async (input, init) => {
+    assert.equal(input, "https://cardano-preprod.blockfrost.io/api/v0/health")
     assert.deepEqual(init?.headers, { project_id: "preprod-test" })
     return Response.json({ is_healthy: true })
   })

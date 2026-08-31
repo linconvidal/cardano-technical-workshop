@@ -59,14 +59,15 @@ export const eacMintReview: ReviewSummary = (details, locale) => {
   const policyId = text(details.policyId, locale)
   const assetNameHex = text(details.assetNameHex, locale)
   const recipient = text(details.recipientAddress, locale)
-  const quantity = mintAmount(details, policyId, assetNameHex, locale)
+  const rawQuantity = mintAmount(details, policyId, assetNameHex, locale)
+  const rawOutputQuantity = assetAmountAt(details, recipient, policyId, assetNameHex, locale)
   const metadata = record(record(transaction?.auxiliaryData)?.["65536"])
   return messageRef("review.eacMint", {
     network: network(details),
-    quantity,
-    displayQuantity: formatEac(quantity, locale),
+    quantity: formatBaseUnits(rawQuantity, locale),
+    displayQuantity: formatEac(rawQuantity, locale),
     tokenName: text(details.tokenName, locale),
-    outputQuantity: assetAmountAt(details, recipient, policyId, assetNameHex, locale),
+    outputQuantity: formatBaseUnits(rawOutputQuantity, locale),
     recipient: short(recipient),
     version: text(metadata?.version, locale),
     unit: text(metadata?.unit, locale),
@@ -82,16 +83,16 @@ export const eacRetireReview: ReviewSummary = (details, locale) => {
   const policyId = text(details.policyId, locale)
   const assetNameHex = text(details.assetNameHex, locale)
   const recipient = text(details.recipientAddress, locale)
-  const quantity = mintAmount(details, policyId, assetNameHex, locale)
-  const remaining = assetAmountAt(details, recipient, policyId, assetNameHex, locale)
+  const rawQuantity = mintAmount(details, policyId, assetNameHex, locale)
+  const rawRemaining = assetAmountAt(details, recipient, policyId, assetNameHex, locale)
   const metadata = record(record(transaction?.auxiliaryData)?.["65536"])
   return messageRef("review.eacRetire", {
     network: network(details),
-    quantity,
-    displayQuantity: formatEac(quantity.replace("-", ""), locale),
+    quantity: formatBaseUnits(rawQuantity, locale),
+    displayQuantity: formatEac(rawQuantity.replace("-", ""), locale),
     tokenName: text(details.tokenName, locale),
-    remaining,
-    displayRemaining: formatEac(remaining, locale),
+    remaining: formatBaseUnits(rawRemaining, locale),
+    displayRemaining: formatEac(rawRemaining, locale),
     recipient: short(recipient),
     version: text(metadata?.version, locale),
     expiry: expiryText(details, locale),
@@ -173,6 +174,14 @@ const expiryText = (details: Record<string, unknown>, locale: Locale): string =>
   return Number.isFinite(expiresAt)
     ? formatDateTime(expiresAt, locale, { dateStyle: "short", timeStyle: "medium" })
     : localizedValue("review.value.unavailable", locale)
+}
+
+const formatBaseUnits = (raw: string, locale: Locale): string => {
+  try {
+    return formatScaledBigInt(BigInt(raw), 0, locale, { maximumFractionDigits: 0 })
+  } catch {
+    return localizedValue("review.value.quantityUnavailable", locale)
+  }
 }
 
 const formatEac = (raw: string, locale: Locale): string => {

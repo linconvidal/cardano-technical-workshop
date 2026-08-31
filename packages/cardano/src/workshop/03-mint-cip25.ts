@@ -1,19 +1,17 @@
 import {
   Address,
   Assets,
-  Client,
   KeyHash,
   NativeScripts,
   ScriptHash,
-  SlotConfig,
   Time,
   Transaction,
   TransactionMetadatum,
-  preprod,
 } from "@evolution-sdk/evolution"
 
 import { expectKeyHash } from "../internal/addresses.js"
-import { BLOCKFROST_PREPROD_URL, loadBlockfrostProjectId } from "../internal/blockfrost-client.js"
+import { makeWorkshopBlockfrostClient } from "../internal/blockfrost-client.js"
+import { WORKSHOP_NETWORK_CONFIG } from "../internal/network-config.js"
 import { bytesToHex, textToAssetNameBytes } from "../internal/serialization.js"
 import { summarizeTransaction } from "./transaction-summary.js"
 import type { MintBuildParams, TxBuildResult } from "./types.js"
@@ -28,7 +26,7 @@ export const buildMintTx = async (params: MintBuildParams): Promise<TxBuildResul
   const recipientAddress = Address.fromBech32(params.recipientAddress)
   const userKeyHash = expectKeyHash(userAddress.paymentCredential, "user payment credential")
 
-  const slotConfig = SlotConfig.getSlotConfig("Preprod")
+  const slotConfig = WORKSHOP_NETWORK_CONFIG.evolutionNetwork.slotConfig
   const requestedExpiry = BigInt(Date.now() + MINT_POLICY_TTL_MS)
   const expirySlot = Time.unixTimeToSlot(requestedExpiry, slotConfig)
   const expiresAt = Time.slotToUnixTime(expirySlot, slotConfig)
@@ -51,11 +49,7 @@ export const buildMintTx = async (params: MintBuildParams): Promise<TxBuildResul
     ["version", 2n],
   ])
 
-  const result = await Client.make(preprod)
-    .withBlockfrost({
-      baseUrl: BLOCKFROST_PREPROD_URL,
-      projectId: loadBlockfrostProjectId(),
-    })
+  const result = await makeWorkshopBlockfrostClient()
     .withAddress(params.userAddress)
     .newTx()
     .attachScript({ script: mintPolicy })

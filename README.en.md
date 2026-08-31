@@ -12,7 +12,8 @@ The custody boundary is explicit:
 
 ## Requirements
 
-- Node.js 20 or newer;
+- Node.js 20.19.0 or newer;
+- Google Chrome or Chromium available as `google-chrome` or through `CHROME_BIN`, plus `gio` to discard the browser smoke test's temporary profile;
 - a Blockfrost project on Cardano Preprod;
 - a CIP-30 wallet configured for Preprod;
 - tADA in at least one UTxO of the wallet used to build transactions;
@@ -29,6 +30,8 @@ cp .env.example .env
 set -a; source .env; set +a
 npm run dev
 ```
+
+Keep `CARDANO_NETWORK=preprod`. The backend rejects Preview, mainnet, and unknown values before startup.
 
 By default, the services listen only on `127.0.0.1` so the Blockfrost credential is not exposed to the local network. To use a different bind address, set `HOST` in the backend and pass an explicit `--host` to Vite only when you understand the shared quota usage.
 
@@ -53,7 +56,8 @@ The Workbench is the authoritative operational guide. After a short introduction
 4. recognize build, signature, merge, submission, and inclusion;
 5. correct an error and retry without losing the last valid checkpoint;
 6. reset only the current exercise;
-7. restore fields and preserved artifacts in the same tab.
+7. restore fields and preserved artifacts in the same tab;
+8. inspect the real source excerpt for each step.
 
 The session uses `sessionStorage`. It preserves addresses, CBOR, and witnesses in the current tab, but never stores the private key or CIP-30 object. After a page reload, the wallet must be connected again. The script address and multisig setup UTxO list are not persisted. Generate, review, and select this data again before a new lock or unlock.
 
@@ -71,8 +75,10 @@ The switch does not rebuild, sign, merge, submit, reset, or otherwise alter tran
 2. Payment with metadata under label 674.
 3. 2-of-2 multisig, with lock, UTxO selection, CBOR handoff, and unlock.
 4. Native Asset in two examples:
-   - 4A: illustrative issuance of `EAC-BRE-2025P01`, partial retirement by burn, and raw metadata under private-use label `65536`;
+   - 4A: training issuance of `EAC-WORKSHOP-001`, partial retirement by burn, and raw metadata under private-use label `65536`;
    - 4B: media token with CIP-25 presentation metadata under label `721`.
+
+Every exercise begins with Objective, Completion condition, and Submission effect, always in that order.
 
 Each pipeline follows the same contract:
 
@@ -85,6 +91,8 @@ backend submits signed tx
 Workbench verifies inclusion on Preprod
 ```
 
+Each step card provides `Show code`. The dialog identifies the exercise, step, file, and line range and displays an excerpt extracted from the current source with TypeScript syntax highlighting. Clean builds link the excerpt to the exact Git commit. With uncommitted local changes, the path remains visible but does not receive a remote link that would represent different code. Opening or closing it does not alter inputs, progress, artifacts, or session state.
+
 The hash is deterministic and can be calculated locally before submission. A successful backend response confirms that Blockfrost accepted the submission. If the response is lost, the Workbench preserves the hash as `unknown result`, allows an inclusion check, and only repeats submission through an explicit action. A `404` from the check means only that Blockfrost has not indexed the hash yet. It confirms neither rejection nor acceptance. The exercise shows completion only after Blockfrost reports inclusion in a block. This inclusion must not be described as irreversible finality.
 
 ## Effects on Preprod
@@ -93,9 +101,9 @@ The hash is deterministic and can be calculated locally before submission. A suc
 - Metadata transfers tADA and publishes content visible on the blockchain.
 - Multisig lock moves tADA to a script that requires two distinct keys. An incorrect configuration may make the balance inaccessible.
 - Multisig unlock consumes the selected UTxO, sends the specified value to the destination, and returns change to the script. Inclusion completes one round, not recovery of the entire balance. To move the remainder, reset the unlock, list the new UTxO, and repeat with both wallets.
-- The EAC example creates `12088322` illustrative units of `EAC-BRE-2025P01`, displayed as `12,088.322 EAC`. This number does not represent the allocable supply published by Heidelberg Materials. The balance remains in the connected wallet.
-- Issuance attaches `methodology_hash`, `assurance_hash`, and `evidence_root` under label `65536`. Retirement burns `125000` units, keeps `11963322` in the output, and attaches `declaration_hash` and `delivery_reference_hash` under the same label. A private-use label does not make the data confidential.
-- The EAC policy is stable and requires the wallet key. It does not validate metadata, limit supply, or prove industrial facts. The approximately three-hour validity belongs to each built transaction, not to the policy.
+- The EAC example creates `1000000` synthetic base units of `EAC-WORKSHOP-001`. With `decimals: 3`, the Workbench displays `1,000.000 EAC`. This display convention does not change the integer quantity recorded in the ledger. The balance remains in the connected wallet.
+- Issuance attaches `methodology_hash`, `assurance_hash`, and `evidence_root` under label `65536`. Retirement burns `125000` base units, keeps `875000` in the output, and attaches `declaration_hash` and `delivery_reference_hash` under the same label. All hashes are synthetic. A private-use label does not make the data confidential.
+- The EAC policy is stable and requires the wallet key. It does not validate metadata, limit supply, or verify external claims. The approximately three-hour validity belongs to each built transaction, not to the policy.
 - The CIP-25 example creates units of a media token, uses at least 5 tADA in the output, and has a policy valid for approximately three hours.
 
 Use disposable wallets and testnet values during validation.
@@ -141,15 +149,18 @@ The `sign-cbor` CLI can produce the second unlock witness. Unsigned CBOR is the 
 ## Validation
 
 ```bash
+# recursively discovers every *.test.ts file
 npm test
 npm run build
 # with npm run dev active in another terminal
 npm run test:browser
+# or with a fresh build, an isolated backend, and intentionally unconfigured Blockfrost
+npm run test:browser:isolated
 ```
 
-Tests cover request validation, the raw EAC issuance schema, stable EAC policy, network and values, distinct multisig signers, imported CBOR inspection, Blockfrost readiness, inclusion checks, ambiguous submission, divergent hashes, transaction-derived summaries, mint validity, HTTP errors, pipeline progression, artifact invalidation, retry, session restoration, localization, and visual input alignment.
+The Node tests cover request validation, basic CLI dispatch, local transaction construction with controlled Blockfrost responses, the raw EAC issuance schema, stable EAC policy, network and values, distinct multisig signers, imported CBOR inspection, Blockfrost readiness, inclusion checks, ambiguous submission, divergent hashes, transaction-derived summaries, mint validity, HTTP errors, pipeline progression, artifact invalidation, retry, session restoration, and localization.
 
-Behavioral scenarios are in [`features/participant-led-workbench.feature`](features/participant-led-workbench.feature), with an English counterpart in [`features/participant-led-workbench.en.feature`](features/participant-led-workbench.en.feature).
+The browser smoke test accepts a ready, unconfigured, or temporarily unavailable Blockfrost backend. It verifies coherent rendered readiness, localization, accessibility, layout, restoration, and interface utilities. It does not build, sign, submit, or confirm a real transaction. That final validation requires a funded Preprod CIP-30 wallet and the participant's explicit authorization.
 
 ## Facilitation guide
 

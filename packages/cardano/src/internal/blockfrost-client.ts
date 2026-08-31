@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs"
 
-import { Address } from "@evolution-sdk/evolution"
+import { Address, Client } from "@evolution-sdk/evolution"
 
-export const SEED_PATH = ".seedphrase"
-export const BLOCKFROST_PREPROD_URL = "https://cardano-preprod.blockfrost.io/api/v0"
+import { WORKSHOP_NETWORK_CONFIG } from "./network-config.js"
+
+const SEED_PATH = ".seedphrase"
 
 export type BlockfrostReadiness = {
   configured: boolean
@@ -42,12 +43,19 @@ export const loadMnemonic = (path = SEED_PATH): string => {
   return readFileSync(path, "utf8").trim()
 }
 
-export const loadBlockfrostProjectId = (): string => {
+const loadBlockfrostProjectId = (): string => {
   const projectId = process.env.BLOCKFROST_PROJECT_ID?.trim()
   if (projectId) return projectId
 
   throw new Error("Set BLOCKFROST_PROJECT_ID")
 }
+
+export const makeWorkshopBlockfrostClient = () => Client
+  .make(WORKSHOP_NETWORK_CONFIG.evolutionNetwork)
+  .withBlockfrost({
+    baseUrl: WORKSHOP_NETWORK_CONFIG.blockfrostBaseUrl,
+    projectId: loadBlockfrostProjectId(),
+  })
 
 export const getBlockfrostReadiness = async (
   fetchImpl: typeof fetch = fetch,
@@ -123,13 +131,13 @@ export const getTransactionInclusion = async (
 }
 
 export const deriveAddressFromSeed = (mnemonic = loadMnemonic()): Address.Address =>
-  Address.fromSeed(mnemonic, { accountIndex: 0, networkId: 0 })
+  Address.fromSeed(mnemonic, { accountIndex: 0, networkId: WORKSHOP_NETWORK_CONFIG.networkId })
 
 const blockfrostFetch = (
   path: string,
   projectId: string,
   fetchImpl: typeof fetch,
-): Promise<Response> => fetchImpl(`${BLOCKFROST_PREPROD_URL}${path}`, {
+): Promise<Response> => fetchImpl(`${WORKSHOP_NETWORK_CONFIG.blockfrostBaseUrl}${path}`, {
   headers: { project_id: projectId },
 })
 

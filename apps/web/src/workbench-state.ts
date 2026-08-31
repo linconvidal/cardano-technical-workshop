@@ -1,7 +1,7 @@
 import { messageRef, type MessageRef } from "../../../packages/localization/src/index.js"
 import { fingerprint } from "./flow-fingerprint.js"
 
-export type FlowStage =
+type FlowStage =
   | "draft"
   | "built"
   | "partially-signed"
@@ -27,7 +27,7 @@ export type Inclusion = {
   blockTime: number
 }
 
-export type FlowArtifacts = {
+type FlowArtifacts = {
   details: string
   unsigned: string
   witnesses: Array<string>
