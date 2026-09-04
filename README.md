@@ -4,6 +4,8 @@
 
 Workshop técnico em TypeScript para construir transações Cardano com backend Node.js e assinatura por wallet CIP-30 no frontend.
 
+![Cardano Workbench](assets/workbench.png)
+
 A fronteira de custódia é explícita:
 
 - o backend Node.js consulta a Cardano Preprod, constrói transações e submete via Blockfrost;
