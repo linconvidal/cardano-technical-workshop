@@ -20,6 +20,6 @@ export const stepCodeSources = {
   wallet: walletSource,
   workbenchUi: workbenchUiSource,
   flowController: flowControllerSource,
-  server: serverSource,
   blockfrost: blockfrostSource,
+  server: serverSource,
 } as const satisfies StepCodeSources

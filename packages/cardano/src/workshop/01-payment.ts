@@ -4,8 +4,11 @@ import { makeWorkshopBlockfrostClient } from "../internal/blockfrost-client.js"
 import { summarizeTransaction } from "./transaction-summary.js"
 import type { PaymentBuildParams, TxBuildResult } from "./types.js"
 
-export const buildPaymentTx = async (params: PaymentBuildParams): Promise<TxBuildResult> => {
-  const client = makeWorkshopBlockfrostClient().withAddress(params.userAddress)
+export const buildPaymentTx = async (
+  params: PaymentBuildParams,
+  provider = makeWorkshopBlockfrostClient(),
+): Promise<TxBuildResult> => {
+  const client = provider.withAddress(params.userAddress)
 
   const result = await client
     .newTx()

@@ -1,22 +1,25 @@
 {
   "name": "cardano-technical-workshop",
   "version": "1.0.0",
-  "description": "Technical workshop for building Cardano transactions with TypeScript, Node backend, and CIP-30 frontend wallet signing.",
+  "description": "Full-stack Cardano transaction Workbench with CIP-30 wallet signing and an optional static deployment.",
   "type": "module",
   "scripts": {
-    "start": "tsx apps/cli/src/main.ts",
-    "address": "tsx apps/cli/src/main.ts address",
-    "server": "tsx apps/api/src/server.ts",
+    "start": "node --env-file=.env --import tsx apps/cli/src/main.ts",
+    "address": "node --env-file=.env --import tsx apps/cli/src/main.ts address",
+    "server": "node --env-file=.env --import tsx apps/api/src/server.ts",
     "web": "vite --host 127.0.0.1 --port 5173",
-    "dev": "concurrently -k -n backend,web \"npm run server\" \"npm run web\"",
+    "dev": "node --env-file=.env --import tsx scripts/dev.mjs",
+    "dev:static": "vite --mode static --host 127.0.0.1 --port 5173",
     "test": "node scripts/run-tests.mjs",
-    "test:browser": "node scripts/browser-smoke.mjs",
+    "test:browser": "node --import tsx scripts/browser-smoke.mjs",
+    "test:browser:static": "node --import tsx scripts/browser-smoke.mjs --static",
     "test:browser:isolated": "node scripts/browser-smoke-isolated.mjs",
-    "build": "tsc --noEmit && vite build"
+    "build": "tsc --noEmit && vite build",
+    "build:static": "tsc --noEmit && vite build --mode static"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/linconvidal/cardano-technical-workshop.git"
+    "url": "git+https://github.com/cardano-foundation/cardano-technical-workshop.git"
   },
   "keywords": [
     "cardano",
@@ -30,9 +33,9 @@
     "node": ">=20.19.0"
   },
   "bugs": {
-    "url": "https://github.com/linconvidal/cardano-technical-workshop/issues"
+    "url": "https://github.com/cardano-foundation/cardano-technical-workshop/issues"
   },
-  "homepage": "https://github.com/linconvidal/cardano-technical-workshop#readme",
+  "homepage": "https://github.com/cardano-foundation/cardano-technical-workshop#readme",
   "dependencies": {
     "@evolution-sdk/evolution": "^0.5.9",
     "express": "^5.2.1",
@@ -41,7 +44,6 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.9.1",
-    "concurrently": "^10.0.0",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3",
     "vite": "^7.3.3"

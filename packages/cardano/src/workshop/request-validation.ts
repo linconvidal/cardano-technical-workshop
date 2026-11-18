@@ -1,9 +1,9 @@
 import { Address, KeyHash, Transaction } from "@evolution-sdk/evolution"
 
-import { expectKeyHash } from "../../../packages/cardano/src/internal/addresses.js"
-import { WORKSHOP_NETWORK_CONFIG } from "../../../packages/cardano/src/internal/network-config.js"
-import { validateTransactionVKeyWitnesses } from "../../../packages/cardano/src/internal/transaction-witnesses.js"
-import { messageRef } from "../../../packages/localization/src/index.js"
+import { expectKeyHash } from "../internal/addresses.js"
+import { WORKSHOP_NETWORK_CONFIG } from "../internal/network-config.js"
+import { validateTransactionVKeyWitnesses } from "../internal/transaction-witnesses.js"
+import { messageRef } from "../../../localization/src/index.js"
 import type {
   EacIssuanceMetadata,
   EacMintBuildParams,
@@ -15,7 +15,7 @@ import type {
   MultisigParams,
   MultisigUnlockParams,
   PaymentBuildParams,
-} from "../../../packages/cardano/src/workshop/types.js"
+} from "./types.js"
 import { RequestValidationError } from "./api-error.js"
 
 const MAX_LOVELACE = 45_000_000_000_000_000n
@@ -291,7 +291,7 @@ const requireString = (value: unknown, field: string): string => {
 
 const requireBoundedString = (value: unknown, field: string, maximumUtf8Bytes: number): string => {
   const parsed = requireString(value, field)
-  if (Buffer.byteLength(parsed, "utf8") <= maximumUtf8Bytes) return parsed
+  if (new TextEncoder().encode(parsed).length <= maximumUtf8Bytes) return parsed
   throw new RequestValidationError(messageRef("api.validation.tooLong", { field, maximumUtf8Bytes }), field)
 }
 

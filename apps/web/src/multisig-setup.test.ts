@@ -2,18 +2,16 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { formatMessage, messageRef } from "../../../packages/localization/src/index.js"
-import { HttpError } from "./http.js"
+import { ApiError } from "../../../packages/cardano/src/workshop/api-error.js"
 import { multisigAlertContent } from "./multisig-setup.js"
 
 test("multisig setup preserves structured API guidance across locale changes", () => {
-  const content = multisigAlertContent(new HttpError(400, {
+  const content = multisigAlertContent(new ApiError(400, {
     code: "invalid_request",
-    message: "Os dois signers precisam usar chaves de pagamento diferentes",
-    messageRef: messageRef("api.validation.distinctSigners"),
+    message: messageRef("api.validation.distinctSigners"),
     retryable: false,
     field: "secondSignerAddress",
-    guidance: "Conecte ou informe uma segunda wallet com outra chave de pagamento.",
-    guidanceRef: messageRef("api.validation.distinctSigners.guidance"),
+    guidance: messageRef("api.validation.distinctSigners.guidance"),
     technicalDetail: "raw provider detail",
   }))
 

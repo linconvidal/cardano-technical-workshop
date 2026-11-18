@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { eacRetirementIndexedAmountError } from "../../../packages/cardano/src/workshop/04a-mint-eac.js"
+import { eacRetirementIndexedAmountError } from "./04a-mint-eac.js"
 import {
   insufficientFundsProblem,
   workshopActionFailedProblem,

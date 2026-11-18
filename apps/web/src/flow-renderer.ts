@@ -12,7 +12,7 @@ import { select, selectWithin, setArtifactValue, setVisible } from "./workbench-
 export type FlowReadiness = {
   walletConnected: boolean
   canBuild: boolean
-  backendReady: boolean
+  providerReady: boolean
   network?: RuntimeNetworkConfig
 }
 
@@ -188,8 +188,8 @@ const statusText = (state: FlowState, readiness: FlowReadiness, locale: Locale):
   }
   if (state.notice) return formatMessage(state.notice, locale)
   if (state.stage === "draft") {
-    const key = !readiness.backendReady
-      ? "flow.status.waitBackend"
+    const key = !readiness.providerReady
+      ? "flow.status.waitProvider"
       : !readiness.walletConnected
         ? "flow.status.connectWallet"
         : !readiness.canBuild

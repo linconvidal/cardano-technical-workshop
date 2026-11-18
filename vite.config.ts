@@ -16,21 +16,22 @@ const resolveSourceRevision = (): string => {
 
 const sourceRevision = resolveSourceRevision()
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: "apps/web",
+  base: "./",
   define: {
     __WORKBENCH_SOURCE_REVISION__: JSON.stringify(sourceRevision),
+    __WORKBENCH_EXECUTION_MODE__: JSON.stringify(mode === "static" ? "static" : "api"),
   },
   build: {
-    outDir: "../../dist",
+    outDir: mode === "static" ? "../../dist-static" : "../../dist",
     emptyOutDir: true,
   },
   server: {
     host: "127.0.0.1",
     port: 5173,
     allowedHosts: ["pop-os", "localhost", "127.0.0.1"],
-    proxy: {
-      "/api": "http://127.0.0.1:8787",
-    },
+    strictPort: true,
+    proxy: mode === "static" ? undefined : { "/api": `http://127.0.0.1:${process.env.PORT ?? 8787}` },
   },
-})
+}))

@@ -21,7 +21,10 @@ const MINT_OUTPUT_MIN_LOVELACE = 5_000_000n
 const CIP25_METADATA_STRING_MAX_BYTES = 64
 const textEncoder = new TextEncoder()
 
-export const buildMintTx = async (params: MintBuildParams): Promise<TxBuildResult> => {
+export const buildMintTx = async (
+  params: MintBuildParams,
+  provider = makeWorkshopBlockfrostClient(),
+): Promise<TxBuildResult> => {
   const userAddress = Address.fromBech32(params.userAddress)
   const recipientAddress = Address.fromBech32(params.recipientAddress)
   const userKeyHash = expectKeyHash(userAddress.paymentCredential, "user payment credential")
@@ -49,7 +52,7 @@ export const buildMintTx = async (params: MintBuildParams): Promise<TxBuildResul
     ["version", 2n],
   ])
 
-  const result = await makeWorkshopBlockfrostClient()
+  const result = await provider
     .withAddress(params.userAddress)
     .newTx()
     .attachScript({ script: mintPolicy })

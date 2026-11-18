@@ -1,4 +1,7 @@
 import assert from "node:assert/strict"
+import { Address, Transaction } from "@evolution-sdk/evolution"
+import { addressFor, blockfrostUtxo, installControlledBlockfrost, lovelace, outputLovelaceAt, protocolParameters } from "../packages/cardano/src/workshop/workshop-builder-test-fixture.ts"
+import { buildPaymentTx } from "../packages/cardano/src/workshop/01-payment.ts"
 import { execFileSync, spawn, spawnSync } from "node:child_process"
 import { mkdtemp } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -23,6 +26,7 @@ const currentSourceRevision = () => {
 }
 
 const expectedSourceRevision = currentSourceRevision()
+const staticMode = process.argv.includes("--static")
 const appUrl = process.env.WORKBENCH_URL ?? "http://127.0.0.1:5173"
 const chromeBinary = process.env.CHROME_BIN ?? "google-chrome"
 const debugPort = 9300 + process.pid % 300
@@ -45,6 +49,7 @@ try {
   const target = await waitForPage(debugPort, appUrl)
   const cdp = await connectCdp(target.webSocketDebuggerUrl)
   const observedApiRequests = []
+  const directProviderRequests = []
   const browserProblems = []
   cdp.on("Runtime.exceptionThrown", ({ exceptionDetails }) => {
     browserProblems.push(`Uncaught exception: ${exceptionDetails?.text ?? "unknown"}`)
@@ -55,13 +60,17 @@ try {
     browserProblems.push(`Console ${type}: ${text}`)
   })
   cdp.on("Log.entryAdded", ({ entry }) => {
-    if (entry?.level === "error") browserProblems.push(`Browser log: ${entry.text}`)
+    if (entry?.level === "error") browserProblems.push(`Browser log: ${entry.text} (${entry.url ?? "unknown URL"})`)
   })
   cdp.on("Network.requestWillBeSent", ({ request }) => {
-    if (!request?.url?.includes("/api/")) return
+    if (!request?.url) return
+    const url = new URL(request.url)
+    if (url.hostname === "cardano-preprod.blockfrost.io") directProviderRequests.push(request.url)
+    if (url.origin !== new URL(appUrl).origin || !url.pathname.startsWith("/api/")) return
     const acceptLanguage = Object.entries(request.headers ?? {})
       .find(([name]) => name.toLowerCase() === "accept-language")?.[1]
-    observedApiRequests.push({ url: request.url, acceptLanguage })
+    const hasProviderKey = Object.keys(request.headers ?? {}).some((name) => name.toLowerCase() === "project_id")
+    observedApiRequests.push({ url: request.url, acceptLanguage, hasProviderKey })
   })
   await cdp.send("Runtime.enable")
   await cdp.send("Page.enable")
@@ -69,6 +78,7 @@ try {
   await cdp.send("Log.enable")
   await cdp.send("Accessibility.enable")
   await waitForWorkbench(cdp)
+  await evaluate(cdp, "document.fonts.ready.then(() => true)")
 
   const desktop = await evaluate(cdp, `(() => ({
     title: document.title,
@@ -90,7 +100,9 @@ try {
       .filter((element) => element.textContent?.trim() === element.dataset.i18n)
       .map((element) => element.dataset.i18n),
     readinessMessage: document.querySelector('#readinessMessage')?.textContent?.trim(),
-    backend: document.querySelector('#backendReadiness')?.dataset.status,
+    configureProvider: document.querySelector('#configureProvider')?.getAttribute('aria-label'),
+    configureProviderHidden: document.querySelector('#configureProvider')?.hidden,
+    executionMode: document.documentElement.dataset.executionMode,
     provider: document.querySelector('#providerReadiness')?.dataset.status,
     paymentBuildDisabled: document.querySelector('#paymentBuild')?.disabled,
     paymentSignDisabled: document.querySelector('#paymentSign')?.disabled,
@@ -137,11 +149,7 @@ try {
     },
   }))()`)
 
-  const backendReadinessPayload = await evaluate(cdp, `fetch('/api/readiness', {
-    headers: { 'Accept-Language': 'pt-BR' },
-  }).then((response) => response.json())`)
-  const expectedProvider = providerPresentation(backendReadinessPayload.provider)
-  const backendNetwork = backendReadinessPayload.network
+  const expectedProvider = providerPresentation({ configured: false })
 
   assert.equal(desktop.title, "Cardano Technical Workshop")
   assert.match(desktop.navigatorLanguage, /^en/i)
@@ -151,7 +159,9 @@ try {
   assert.equal(desktop.heroTitle, "Workbench de transações Cardano")
   assert.deepEqual(desktop.unresolvedMessages, [])
   assert.equal(desktop.readinessMessage, expectedProvider.readiness.pt)
-  assert.equal(desktop.backend, "ready")
+  assert.equal(desktop.configureProvider, "Configurar Blockfrost")
+  assert.equal(desktop.configureProviderHidden, !staticMode)
+  assert.equal(desktop.executionMode, staticMode ? "static" : "api")
   assert.equal(desktop.provider, expectedProvider.status)
   assert.equal(desktop.paymentBuildDisabled, true)
   assert.equal(desktop.paymentSignDisabled, true)
@@ -189,11 +199,6 @@ try {
     dialogOpen: false,
   })
 
-  assert.deepEqual(backendNetwork, {
-    name: "preprod",
-    networkId: 0,
-    explorerTransactionBaseUrl: "https://preprod.cardanoscan.io/transaction/",
-  })
 
   const exerciseNavigation = await evaluate(cdp, `(async () => {
     const active = () => [...document.querySelectorAll('.exercise-nav a[aria-current="location"]')]
@@ -250,7 +255,7 @@ try {
     assert.match(codeDialog.sourceLabel, /^Abrir packages\/cardano\/src\/workshop\/01-payment\.ts, linhas \d+ a \d+, no GitHub$/)
     assert.match(
       codeDialog.sourceHref,
-      new RegExp(`^https://github\\.com/linconvidal/cardano-technical-workshop/blob/${expectedSourceRevision}/`),
+      new RegExp(`^https://github\\.com/cardano-foundation/cardano-technical-workshop/blob/${expectedSourceRevision}/`),
     )
   } else {
     assert.equal(codeDialog.sourceKind, "SPAN")
@@ -379,8 +384,6 @@ try {
   assert.equal(reloaded.resumeVisible, true)
   assert.equal(reloaded.resumeText, "A session from this tab can be continued.")
   assert.equal(reloaded.walletStatus, "No wallet connected.")
-  reloaded.apiRequest = lastApiRequest(observedApiRequests, "en")
-  assert.equal(reloaded.apiRequest?.acceptLanguage, "en")
 
   const restoredCompletion = await evaluate(cdp, `(async () => {
     const saved = JSON.parse(sessionStorage.getItem('cardano-technical-workshop.session.v1'))
@@ -448,6 +451,7 @@ try {
     cardanoscanHref: "https://preprod.cardanoscan.io/transaction/3da9a3b38dce0e87ca4a88f3328caac7a970cf9ac40424cde2b675768d11f11b",
     metadataStatus: expectedProvider.flowStatus.en,
   })
+  const completionColors = await checkCompletionColors(cdp)
 
   const portuguese = await evaluate(cdp, `(async () => {
     const sessionBefore = sessionStorage.getItem('cardano-technical-workshop.session.v1')
@@ -509,8 +513,6 @@ try {
   await cdp.send("Page.navigate", { url: portugueseReloadUrl })
   await waitForReload(cdp, portugueseReloadUrl)
   await waitForWorkbench(cdp)
-  portuguese.apiRequest = lastApiRequest(observedApiRequests, "pt-BR")
-  assert.equal(portuguese.apiRequest?.acceptLanguage, "pt-BR")
 
   const portugueseLayouts = []
   for (const viewport of [
@@ -541,11 +543,14 @@ try {
       dialogHeight: dialogRect.height,
       closeWidth: closeRect.width,
       closeHeight: closeRect.height,
+      closeContained: closeRect.left >= dialogRect.left && closeRect.right <= dialogRect.right,
     }
   })()`)
   assert.ok(narrowModal.dialogWidth <= 300)
   assert.ok(narrowModal.dialogHeight <= 700)
-  assert.ok(narrowModal.closeWidth <= 90)
+  // Font metrics vary; the close control must remain compact and inside the dialog.
+  assert.ok(narrowModal.closeWidth < narrowModal.dialogWidth / 2, JSON.stringify(narrowModal))
+  assert.equal(narrowModal.closeContained, true)
   assert.ok(narrowModal.closeHeight <= 48)
 
   const narrowCodeModal = await evaluate(cdp, `(async () => {
@@ -563,6 +568,7 @@ try {
       dialogHeight: dialogRect.height,
       closeWidth: closeRect.width,
       closeHeight: closeRect.height,
+      closeContained: closeRect.left >= dialogRect.left && closeRect.right <= dialogRect.right,
       pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       codeFitsWidth: pre.scrollWidth <= pre.clientWidth + 1,
       codeHasNoNestedVerticalClip: pre.scrollHeight <= pre.clientHeight + 1,
@@ -574,7 +580,8 @@ try {
   })()`)
   assert.ok(narrowCodeModal.dialogWidth <= 300)
   assert.ok(narrowCodeModal.dialogHeight <= 700)
-  assert.ok(narrowCodeModal.closeWidth <= 90)
+  assert.ok(narrowCodeModal.closeWidth < narrowCodeModal.dialogWidth / 2, JSON.stringify(narrowCodeModal))
+  assert.equal(narrowCodeModal.closeContained, true)
   assert.ok(narrowCodeModal.closeHeight <= 48)
   assert.equal(narrowCodeModal.pageOverflow, false)
   assert.equal(narrowCodeModal.codeFitsWidth, true)
@@ -589,12 +596,13 @@ try {
       id: element?.id,
       outlineColor: style.outlineColor,
       outlineWidth: style.outlineWidth,
+      focusVisible: element.matches(':focus-visible'),
       boxShadow: style.boxShadow,
     }
   })()`)
   assert.equal(focused.id, "paymentRecipient")
   assert.equal(focused.outlineColor, "rgb(39, 39, 39)")
-  assert.equal(focused.outlineWidth, "2px")
+  assert.equal(focused.outlineWidth, "2px", JSON.stringify(focused))
   assert.equal(focused.boxShadow, "none")
 
   const freshMetadataInput = await evaluate(cdp, `(async () => {
@@ -636,11 +644,18 @@ try {
     errorIcon: "block",
     liveMessage: "Copiar Detalhes da construção: falhou. Este artefato ainda está vazio",
   })
+  const execution = staticMode ? await checkStaticConfiguration(cdp) : await checkApiExecution(cdp)
+  if (staticMode) assert.deepEqual(observedApiRequests, [], "The static app must not call the API")
+  else {
+    assert.ok(observedApiRequests.some(({ acceptLanguage }) => acceptLanguage === "en"))
+    assert.ok(observedApiRequests.every(({ hasProviderKey }) => !hasProviderKey))
+    assert.deepEqual(directProviderRequests, [], "The API frontend must not call Blockfrost directly")
+  }
   assert.deepEqual(browserProblems, [])
 
   console.log(JSON.stringify({
     desktop,
-    backendNetwork,
+    execution,
     exerciseNavigation,
     codeDialog,
     beforeLanguageSwitch: { ...beforeLanguageSwitch, session: "[captured]" },
@@ -650,6 +665,7 @@ try {
     englishLayouts,
     reloaded,
     restoredCompletion,
+    completionColors,
     portuguese,
     resetCompletion,
     portugueseLayouts,
@@ -667,18 +683,290 @@ try {
   spawnSync("gio", ["trash", profileDirectory])
 }
 
+async function checkCompletionColors(cdp) {
+  const colors = await evaluate(cdp, `(() => {
+    const context = document.createElement('canvas').getContext('2d')
+    const rgb = (value) => {
+      context.clearRect(0, 0, 1, 1)
+      context.fillStyle = value
+      context.fillRect(0, 0, 1, 1)
+      return [...context.getImageData(0, 0, 1, 1).data].slice(0, 3)
+    }
+    const color = (selector, property = 'color') => rgb(getComputedStyle(document.querySelector(selector))[property])
+    return {
+      banner: color('#paymentCompletion', 'backgroundColor'),
+      label: color('#paymentCompletion .completion-label'),
+      check: color('#paymentCompletion .completion-mark'),
+      message: color('#paymentCompletion .completion-message'),
+      navigation: color('.exercise-nav a[data-complete="true"] .exercise-nav-check', 'stroke'),
+      step: color('#paymentPanel .pipeline li[data-status="complete"]', 'backgroundColor'),
+    }
+  })()`)
+  for (const name of ['banner', 'label', 'check', 'navigation', 'step']) {
+    const [red, green, blue] = colors[name]
+    assert.ok(green > red && green > blue, `${name} must use a green success color: ${colors[name]}`)
+  }
+  const luminance = (rgb) => rgb.map((value) => {
+    const channel = value / 255
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  }).reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0)
+  for (const name of ['label', 'message']) {
+    const [light, dark] = [luminance(colors[name]), luminance(colors.banner)].sort((a, b) => b - a)
+    assert.ok((light + 0.05) / (dark + 0.05) >= 4.5, `${name} must retain readable contrast`)
+  }
+  return colors
+}
+
+async function connectMockWallet(cdp, userAddress) {
+  await evaluate(cdp, `(() => {
+    window.cardano = { test: { name: 'Smoke wallet', enable: async () => ({
+      getNetworkId: async () => 0,
+      getUsedAddresses: async () => [${JSON.stringify(Address.toHex(Address.fromBech32(userAddress)))}],
+      getUnusedAddresses: async () => [], getRewardAddresses: async () => [], getUtxos: async () => [],
+      signTx: async () => { throw new Error('Signing is forbidden in this smoke test') },
+      submitTx: async () => { throw new Error('Submission is forbidden in this smoke test') },
+    }) } }
+    const selector = document.querySelector('#languageSelector')
+    selector.value = 'en'; selector.dispatchEvent(new Event('change', { bubbles: true }))
+    document.querySelector('#walletName').value = 'test'
+    document.querySelector('#connectWallet').click()
+  })()`)
+}
+
+async function checkErrorLogLocale(cdp, english, portuguese) {
+  const count = await evaluate(cdp, "document.querySelectorAll('#log .log-entry').length")
+  for (const [locale, expected, unexpected] of [["en", english, portuguese], ["pt-BR", portuguese, english], ["en", english, portuguese]]) {
+    await evaluate(cdp, `(() => {
+      const selector = document.querySelector('#languageSelector')
+      selector.value = ${JSON.stringify(locale)}
+      selector.dispatchEvent(new Event('change', { bubbles: true }))
+    })()`)
+    const text = await evaluate(cdp, "document.querySelector('#log').textContent")
+    assert.ok(text.includes(expected), `Missing localized error in ${locale}: ${text}`)
+    assert.ok(!text.includes(unexpected), `Error log retained the other language in ${locale}`)
+    assert.equal(await evaluate(cdp, "document.querySelectorAll('#log .log-entry').length"), count)
+  }
+}
+
+async function checkApiExecution(cdp) {
+  const userAddress = addressFor("1")
+  const recipientAddress = addressFor("2")
+  const controlled = installControlledBlockfrost()
+  controlled.utxosByAddress.set(userAddress, [blockfrostUtxo(userAddress, "a".repeat(64), [lovelace()])])
+  let buildResult
+  try { buildResult = await buildPaymentTx({ userAddress, recipientAddress, lovelace: 2_000_000n }) }
+  finally { controlled.restore() }
+
+  const requests = []
+  const interceptionErrors = []
+  let failReadiness = false
+  cdp.on("Fetch.requestPaused", async ({ requestId, request }) => {
+    try {
+      const url = new URL(request.url)
+      requests.push(url.pathname)
+      assert.ok(!Object.keys(request.headers).some((name) => name.toLowerCase() === "project_id"))
+      let payload
+      if (url.pathname === "/api/readiness") payload = {
+        ok: true,
+        network: { name: "preprod", networkId: 0, explorerTransactionBaseUrl: "https://preprod.cardanoscan.io/transaction/" },
+        provider: { configured: true, reachable: true, healthy: true },
+        wallet: { funded: true, utxoCount: 1 },
+      }
+      else if (url.pathname === "/api/workshop/01-payment") {
+        assert.equal(request.method, "POST")
+        assert.deepEqual(JSON.parse(request.postData), { userAddress, recipientAddress, lovelace: "2000000" })
+        payload = buildResult
+      } else throw new Error(`Unexpected API request: ${url.pathname}`)
+      await cdp.send("Fetch.fulfillRequest", {
+        requestId, responseCode: 200,
+        responseHeaders: [{ name: "Content-Type", value: "application/json" }],
+        body: Buffer.from(failReadiness ? "invalid readiness JSON" : JSON.stringify(payload)).toString("base64"),
+      })
+    } catch (error) {
+      interceptionErrors.push(String(error))
+      await cdp.send("Fetch.failRequest", { requestId, errorReason: "BlockedByClient" })
+    }
+  })
+  await cdp.send("Fetch.enable", { patterns: [{ urlPattern: `${new URL(appUrl).origin}/api/*` }] })
+  const reload = reloadUrl("api-execution")
+  await cdp.send("Page.navigate", { url: reload })
+  await waitForReload(cdp, reload)
+  await waitForWorkbench(cdp)
+  assert.equal(await evaluate(cdp, "document.querySelector('#configureProvider').hidden"), true)
+  await connectMockWallet(cdp, userAddress)
+  await waitForExpression(cdp, "!document.querySelector('#paymentBuild').disabled")
+  await evaluate(cdp, `(() => {
+    const input = document.querySelector('#paymentRecipient')
+    input.value = ${JSON.stringify(recipientAddress)}
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    document.querySelector('#paymentBuild').click()
+  })()`)
+  await waitForExpression(cdp, "document.querySelector('#paymentPanel').dataset.stage === 'built'")
+  assert.equal(await evaluate(cdp, "document.querySelector('#paymentUnsigned').value"), buildResult.txCbor)
+  assert.ok(requests.includes("/api/workshop/01-payment"))
+
+  failReadiness = true
+  await evaluate(cdp, "document.querySelector('#connectWallet').click()")
+  await waitForExpression(cdp, "document.querySelector('#providerReadiness').dataset.status === 'error'")
+  assert.equal(await evaluate(cdp, "document.querySelector('#workbenchNetwork').dataset.network"), "preprod")
+  assert.equal(await evaluate(cdp, "document.querySelector('#metadataBuild').disabled"), true)
+  await checkErrorLogLocale(cdp, "The API responded without valid JSON", "A API respondeu sem JSON válido")
+  failReadiness = false
+  await evaluate(cdp, "document.querySelector('#connectWallet').click()")
+  await waitForExpression(cdp, "!document.querySelector('#metadataBuild').disabled")
+  assert.equal(await evaluate(cdp, "document.querySelector('#paymentUnsigned').value"), buildResult.txCbor)
+  assert.deepEqual(interceptionErrors, [])
+  return { paymentBuiltThroughApi: true, providerFailureRecovered: true }
+}
+
+async function checkStaticConfiguration(cdp) {
+  const storageKey = "cardano-technical-workshop.blockfrost-project-id.v1"
+  const userAddress = addressFor("1")
+  const recipient = addressFor("2")
+  const requests = []
+  const interceptionErrors = []
+  let failAddressLookup = false
+  let promptAnswer = null
+  const dialogs = []
+  cdp.on("Page.javascriptDialogOpening", async (dialog) => {
+    dialogs.push(dialog)
+    await cdp.send("Page.handleJavaScriptDialog", {
+      accept: promptAnswer !== null,
+      ...(promptAnswer === null ? {} : { promptText: promptAnswer }),
+    })
+  })
+  cdp.on("Fetch.requestPaused", async ({ requestId, request }) => {
+    try {
+      const url = new URL(request.url)
+      const responseHeaders = [
+        { name: "Content-Type", value: "application/json" },
+        { name: "Access-Control-Allow-Origin", value: "*" },
+        { name: "Access-Control-Allow-Headers", value: "*" },
+        { name: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
+      ]
+      if (request.method === "OPTIONS") {
+        await cdp.send("Fetch.fulfillRequest", { requestId, responseCode: 204, responseHeaders })
+        return
+      }
+      const key = Object.entries(request.headers).find(([name]) => name.toLowerCase() === "project_id")?.[1]
+      requests.push({ path: url.pathname, key })
+      let payload
+      if (url.pathname.endsWith("/health")) payload = { is_healthy: key !== "preprod-unhealthy" }
+      else if (url.pathname.endsWith("/epochs/latest/parameters")) payload = protocolParameters
+      else if (url.pathname.includes("/addresses/") && url.pathname.endsWith("/utxos")) {
+        // A malformed provider response exercises the failure path without an expected browser HTTP error.
+        payload = failAddressLookup ? { unexpected: "address response" }
+          : [blockfrostUtxo(userAddress, "a".repeat(64), [lovelace()])]
+      } else throw new Error(`Unexpected provider call: ${url.pathname}`)
+      await cdp.send("Fetch.fulfillRequest", {
+        requestId, responseCode: 200,
+        responseHeaders,
+        body: Buffer.from(JSON.stringify(payload)).toString("base64"),
+      })
+    } catch (error) {
+      interceptionErrors.push(String(error))
+      await cdp.send("Fetch.failRequest", { requestId, errorReason: "BlockedByClient" })
+    }
+  })
+  await cdp.send("Fetch.enable", { patterns: [{ urlPattern: "https://cardano-preprod.blockfrost.io/*" }] })
+  const stored = () => evaluate(cdp, `localStorage.getItem(${JSON.stringify(storageKey)})`)
+  const configure = async (answer) => {
+    promptAnswer = answer
+    const before = dialogs.length
+    await evaluate(cdp, "document.querySelector('#configureProvider').click()")
+    assert.equal(dialogs.length, before + 1)
+    assert.equal(dialogs.at(-1).type, "prompt")
+    assert.equal(dialogs.at(-1).defaultPrompt, "")
+    assert.match(dialogs.at(-1).message, /Blockfrost Preprod/)
+    await waitForWorkbench(cdp)
+  }
+
+  await configure("  preprod-browser-smoke  ")
+  assert.equal(await stored(), "preprod-browser-smoke")
+  assert.equal(await evaluate(cdp, "document.querySelector('#providerReadiness').dataset.status"), "ready")
+  const beforeCancel = requests.length
+  await configure(null)
+  assert.equal(await stored(), "preprod-browser-smoke")
+  assert.equal(requests.length, beforeCancel)
+  await configure("preprod-unhealthy")
+  assert.equal(await evaluate(cdp, "document.querySelector('#providerReadiness').dataset.status"), "warning")
+  assert.equal(await evaluate(cdp, "document.querySelector('#paymentBuild').disabled"), true)
+  await configure("preprod-browser-smoke")
+
+  const reload = reloadUrl("provider-settings")
+  await cdp.send("Page.navigate", { url: reload })
+  await waitForReload(cdp, reload)
+  await waitForWorkbench(cdp)
+  assert.equal(await stored(), "preprod-browser-smoke")
+  assert.equal(await evaluate(cdp, "document.querySelector('#providerReadiness').dataset.status"), "ready")
+
+  // A disposable mock wallet exposes only an address. Signing and submission remain forbidden.
+  await connectMockWallet(cdp, userAddress)
+  await waitForExpression(cdp, "!document.querySelector('#paymentBuild').disabled")
+  await evaluate(cdp, `(() => {
+    const input = document.querySelector('#paymentRecipient')
+    input.value = ${JSON.stringify(recipient)}
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    document.querySelector('#paymentBuild').click()
+  })()`)
+  await waitForExpression(cdp, "document.querySelector('#paymentPanel').getAttribute('aria-busy') === 'false'")
+  const built = await evaluate(cdp, `({
+    stage: document.querySelector('#paymentPanel').dataset.stage,
+    unsigned: document.querySelector('#paymentUnsigned').value,
+    error: document.querySelector('#paymentAlert').textContent,
+    session: sessionStorage.getItem('cardano-technical-workshop.session.v1'),
+  })`)
+  assert.equal(built.stage, "built", built.error)
+  assert.equal(outputLovelaceAt(Transaction.fromCBORHex(built.unsigned), recipient), 2_000_000n)
+  assert.ok(requests.some(({ path }) => path.endsWith("/epochs/latest/parameters")))
+  assert.ok(requests.every(({ key }) => ["preprod-browser-smoke", "preprod-unhealthy"].includes(key)))
+  assert.deepEqual(interceptionErrors, [])
+  await configure("")
+  assert.equal(await stored(), null)
+  assert.equal(await evaluate(cdp, "document.querySelector('#providerReadiness').dataset.status"), "error")
+  assert.equal(await evaluate(cdp, "document.querySelector('#paymentUnsigned').value"), built.unsigned)
+  assert.equal(await evaluate(cdp, "sessionStorage.getItem('cardano-technical-workshop.session.v1')"), built.session)
+
+  failAddressLookup = true
+  await configure("preprod-browser-smoke")
+  assert.equal(await evaluate(cdp, "document.querySelector('#providerReadiness').dataset.status"), "error")
+  assert.equal(await evaluate(cdp, "document.querySelector('#workbenchNetwork').dataset.network"), "preprod")
+  assert.equal(await evaluate(cdp, "document.querySelector('#metadataBuild').disabled"), true)
+  assert.equal(await evaluate(cdp, "document.querySelector('#paymentUnsigned').value"), built.unsigned)
+  await checkErrorLogLocale(cdp, "The operation could not be completed", "A operação não pôde ser concluída")
+
+  failAddressLookup = false
+  const beforeReconnect = requests.length
+  await evaluate(cdp, "document.querySelector('#connectWallet').click()")
+  await waitForExpression(cdp, "!document.querySelector('#metadataBuild').disabled")
+  assert.ok(requests.length > beforeReconnect, "Reconnecting must retry the provider check")
+  assert.equal(await stored(), "preprod-browser-smoke")
+  assert.equal(await evaluate(cdp, "document.querySelector('#walletNetworkReadiness').dataset.status"), "ready")
+  assert.equal(await evaluate(cdp, "document.querySelector('#paymentUnsigned').value"), built.unsigned)
+  assert.deepEqual(interceptionErrors, [])
+  return { nativePrompt: true, saved: true, cancelled: true, replaced: true, reloaded: true, removed: true, paymentBuiltInBrowser: true, providerFailureRecovered: true }
+}
+
+async function waitForExpression(cdp, expression) {
+  for (let attempt = 0; attempt < 150; attempt += 1) {
+    if (await evaluate(cdp, expression)) return
+    await delay(100)
+  }
+  throw new Error(`Browser condition not reached: ${expression}`)
+}
+
 function providerPresentation(provider) {
   if (!provider?.configured) {
     return {
       status: "error",
       tone: "error",
       readiness: {
-        pt: "Configure BLOCKFROST_PROJECT_ID no backend e reinicie a Workbench.",
-        en: "Configure BLOCKFROST_PROJECT_ID in the backend and restart the Workbench.",
+        pt: staticMode ? "Configure sua chave Preprod no botão API key." : "Configure BLOCKFROST_PROJECT_ID no backend e reinicie a API.",
+        en: staticMode ? "Set your Preprod key using the API key button." : "Set BLOCKFROST_PROJECT_ID in the backend and restart the API.",
       },
       flowStatus: {
-        pt: "Aguarde: o backend e o Blockfrost Preprod precisam estar prontos antes de construir.",
-        en: "Wait until the backend and Blockfrost Preprod are ready before building.",
+        pt: "Aguarde: o Blockfrost Preprod precisa estar pronto antes de construir.",
+        en: "Wait until Blockfrost Preprod is ready before building.",
       },
     }
   }
@@ -692,8 +980,8 @@ function providerPresentation(provider) {
         en: "Blockfrost Preprod is unavailable. Your fields and artifacts remain in this tab; wait and try again.",
       },
       flowStatus: {
-        pt: "Aguarde: o backend e o Blockfrost Preprod precisam estar prontos antes de construir.",
-        en: "Wait until the backend and Blockfrost Preprod are ready before building.",
+        pt: "Aguarde: o Blockfrost Preprod precisa estar pronto antes de construir.",
+        en: "Wait until Blockfrost Preprod is ready before building.",
       },
     }
   }
@@ -702,18 +990,14 @@ function providerPresentation(provider) {
     status: "ready",
     tone: "info",
     readiness: {
-      pt: "Backend pronto. Conecte uma wallet configurada em Preprod.",
-      en: "Backend ready. Connect a wallet configured for Preprod.",
+      pt: "Blockfrost pronto. Conecte uma wallet configurada em Preprod.",
+      en: "Blockfrost ready. Connect a wallet configured for Preprod.",
     },
     flowStatus: {
       pt: "Próximo passo: conecte uma wallet CIP-30 na seção de prontidão.",
       en: "Next step: connect a CIP-30 wallet in the readiness section.",
     },
   }
-}
-
-function lastApiRequest(requests, locale) {
-  return [...requests].reverse().find((request) => request.acceptLanguage === locale)
 }
 
 async function checkViewport(cdp, { width, height, mobile }) {
@@ -734,6 +1018,11 @@ async function checkViewport(cdp, { width, height, mobile }) {
       navVisible: Boolean(nav?.offsetParent),
       navHorizontalOverflow: nav ? nav.scrollWidth > nav.clientWidth : true,
       navLinks: nav?.querySelectorAll('a').length ?? 0,
+      providerButton: (() => {
+        const button = document.querySelector('#configureProvider')
+        const rect = button.getBoundingClientRect()
+        return { width: rect.width, height: rect.height, visible: !button.hidden, icon: Boolean(button.querySelector('svg')), label: button.getAttribute('aria-label'), title: button.title }
+      })(),
     }
   })()`)
   assert.equal(layout.clientWidth, width)
@@ -741,6 +1030,11 @@ async function checkViewport(cdp, { width, height, mobile }) {
   assert.equal(layout.navVisible, true)
   assert.equal(layout.navHorizontalOverflow, false)
   assert.equal(layout.navLinks, 5)
+  assert.equal(layout.providerButton.visible, staticMode)
+  assert.ok(layout.providerButton.width <= 110)
+  assert.ok(layout.providerButton.height <= 44)
+  assert.equal(layout.providerButton.icon, true)
+  assert.equal(layout.providerButton.title, layout.providerButton.label)
 
   const accessibility = await cdp.send("Accessibility.getFullAXTree")
   const unnamedControls = accessibility.nodes.filter((node) =>
@@ -800,8 +1094,8 @@ async function waitForReload(cdp, expectedUrl) {
 async function waitForWorkbench(cdp) {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const ready = await evaluate(cdp, `document.readyState !== 'loading' &&
-      Boolean(document.querySelector('#backendReadiness')) &&
-      document.querySelector('#backendReadiness').dataset.status !== 'checking'`)
+      Boolean(document.querySelector('#providerReadiness')) &&
+      document.querySelector('#providerReadiness').dataset.status !== 'checking'`)
     if (ready) return
     await delay(100)
   }

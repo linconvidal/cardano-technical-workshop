@@ -59,7 +59,7 @@ test("source links require the exact build revision", () => {
 
   assert.equal(
     githubSourceHref(excerpt, revision),
-    `https://github.com/linconvidal/cardano-technical-workshop/blob/${revision}/${excerpt.path}#L${excerpt.startLine}-L${excerpt.endLine}`,
+    `https://github.com/cardano-foundation/cardano-technical-workshop/blob/${revision}/${excerpt.path}#L${excerpt.startLine}-L${excerpt.endLine}`,
   )
   assert.equal(githubSourceHref(excerpt, ""), undefined)
   assert.equal(githubSourceHref(excerpt, "main"), undefined)

@@ -4,14 +4,16 @@
 
 A Workbench web contém as instruções operacionais, o estado, a recuperação e a condição de conclusão de cada exercício. Este roteiro orienta a facilitação e evita antecipar a solução antes da primeira tentativa dos participantes.
 
+Este roteiro acompanha a aplicação full-stack: frontend em `apps/web/`, API Express em `apps/api/` e lógica Cardano compartilhada em `packages/cardano/`. Há uma adaptação para deploy estático que executa essa mesma lógica no navegador; as opções de publicação estão no [README](README.md).
+
 ## 1. Preparação
 
 Antes da aula:
 
 ```bash
-npm install
+npm ci
 cp .env.example .env
-set -a; source .env; set +a
+# Configure o projeto Blockfrost Preprod em .env; os scripts carregam o arquivo.
 npm test
 npm run build
 npm run dev
@@ -19,7 +21,8 @@ npm run dev
 
 Confirme no navegador:
 
-- backend local disponível;
+- API disponível em `http://127.0.0.1:8787/api/health`;
+- `BLOCKFROST_PROJECT_ID` configurado somente no ambiente do backend;
 - Blockfrost Preprod configurado e saudável;
 - wallet CIP-30 detectada;
 - wallet explicitamente configurada em Preprod;
@@ -35,10 +38,10 @@ Deixe o [CBOR Nemo](https://cbor.nemo157.com/) disponível para inspeção manua
 A introdução deve ser curta:
 
 1. A Workbench usa Cardano Preprod e movimenta tADA real de testnet.
-2. O backend constrói a transação sem receber a chave privada.
+2. O frontend envia os dados à API, que constrói a transação sem receber a chave privada.
 3. A wallet assina o corpo exato e devolve um witness.
 4. O navegador valida e anexa o witness.
-5. O backend submete a transação assinada.
+5. O frontend envia o signed CBOR à API, que o submete ao Blockfrost.
 6. Um hash submetido ainda pode estar pendente; conclusão exige inclusão em bloco.
 
 Depois dessa moldura, os participantes iniciam o exercício diretamente. O facilitador observa o primeiro contato e responde dúvidas sem executar todo o caminho antes deles.
@@ -97,11 +100,13 @@ A interface é a fonte de verdade para:
 
 Não explique todos os artefatos antecipadamente. Peça que o participante diga o que mudou após cada etapa.
 
+Ao inspecionar o código, acompanhe uma requisição de ponta a ponta: `apps/web/src/workshop.ts` chama `/api/workshop/01-payment`; `apps/api/src/server.ts` valida os dados e chama `buildPaymentTx` em `packages/cardano/src/workshop/01-payment.ts`. O unsigned CBOR volta ao frontend para assinatura pela wallet. A submissão usa `/api/submit-tx`, e a consulta de inclusão usa `/api/transactions/:txHash/status`. A aba Network do navegador permite observar essa fronteira HTTP.
+
 ### 5.1 Seleção de idioma
 
 O seletor no hero fica visível e recebe o nome `Idioma` em português e `Language` em inglês. Português do Brasil (`pt-BR`) é o padrão inicial, independentemente do idioma do navegador. O participante pode alternar para inglês sem recarregar a página.
 
-A preferência explícita fica no `localStorage`, na chave `cardano-technical-workshop.locale.v1`. Ela é separada da sessão das transações mantida no `sessionStorage`, na chave `cardano-technical-workshop.session.v1`. A troca de idioma atualiza instruções visíveis, nomes acessíveis, anúncios de status, formatação dependente de locale, `html.lang` e o header `Accept-Language` das requisições seguintes à API. O backend localiza a nota de prontidão e problemas estruturados, responde com `Content-Language` e inclui `Accept-Language` em `Vary`; um header ausente ou incompatível usa `pt-BR`. A troca não altera valores dos inputs, estágios do pipeline, CBOR, witnesses, transaction hashes, estado da sessão ou autorização da wallet.
+A preferência explícita fica no `localStorage`, na chave `cardano-technical-workshop.locale.v1`. Ela é separada da sessão das transações mantida no `sessionStorage`, na chave `cardano-technical-workshop.session.v1`. A troca de idioma atualiza a interface e o header `Accept-Language` das próximas chamadas à API. O backend responde com `Content-Language` e mensagens estruturadas; suas referências permitem ao frontend reapresentar erros no idioma selecionado. A troca não altera inputs, estágios, CBOR, witnesses, hashes, sessão ou autorização da wallet.
 
 Depois de um reload, o idioma selecionado continua ativo e o estado preservado das transações ainda pode ser oferecido para restauração. A wallet CIP-30 permanece desconectada até uma nova conexão do participante. Trate a troca de idioma somente como apresentação. Não peça que o participante reconstrua ou reinicie um exercício depois da troca.
 
@@ -118,7 +123,7 @@ Foco conceitual:
 
 Perguntas após a tentativa:
 
-- O backend precisou da chave privada para construir?
+- A API precisou da chave privada da wallet para construir?
 - Qual artefato mudou quando a wallet assinou?
 - O que impede usar esse witness em outro corpo?
 - Onde aparecem valor, taxa e troco na confirmação da wallet e nos detalhes?
@@ -129,7 +134,7 @@ Falhas úteis para discussão:
 - valor zero;
 - saldo insuficiente;
 - wallet recusada;
-- backend desligado;
+- backend desligado ou credencial Blockfrost ausente ou inválida;
 - submissão aceita, mas ainda não indexada.
 
 ## 7. Exercício 2: pagamento com metadata
@@ -294,4 +299,4 @@ Peça aos participantes para descreverem um dos fluxos sem usar os nomes dos bot
 5. submissão;
 6. inclusão e verificação do resultado.
 
-O fechamento deve preservar a fronteira principal: o backend pode construir e transmitir, enquanto a wallet mantém a custódia e decide se assina.
+O fechamento deve preservar a fronteira principal: o frontend conduz a interação, a API constrói e transmite as transações, e a wallet mantém a custódia e decide se assina.

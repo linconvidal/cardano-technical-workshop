@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+
 import {
   Address,
   Assets,
@@ -14,8 +16,6 @@ import {
 
 import { credentialToHex, expectKeyHash } from "../internal/addresses.js"
 import {
-  deriveAddressFromSeed,
-  loadMnemonic,
   makeWorkshopBlockfrostClient,
 } from "../internal/blockfrost-client.js"
 import { WORKSHOP_NETWORK_CONFIG } from "../internal/network-config.js"
@@ -26,6 +26,18 @@ import {
   scriptAddressFromNativeScript,
   twoSignerScript,
 } from "../workshop/04-multisig.js"
+
+const SEED_PATH = ".seedphrase"
+
+const loadMnemonic = (path = SEED_PATH): string => {
+  const fromEnv = process.env.WALLET_MNEMONIC?.trim()
+  if (fromEnv) return fromEnv
+
+  return readFileSync(path, "utf8").trim()
+}
+
+const deriveAddressFromSeed = (mnemonic = loadMnemonic()): Address.Address =>
+  Address.fromSeed(mnemonic, { accountIndex: 0, networkId: WORKSHOP_NETWORK_CONFIG.networkId })
 
 const MINT_POLICY_TTL_MS = 3 * 60 * 60 * 1000
 const MINT_OUTPUT_MIN_LOVELACE = 5_000_000n

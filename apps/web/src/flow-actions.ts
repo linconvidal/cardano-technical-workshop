@@ -1,5 +1,5 @@
 import { messageRef } from "../../../packages/localization/src/index.js"
-import { getJson, postJson } from "./http.js"
+import { workshop } from "./workshop.js"
 import {
   finishAction,
   setBuild,
@@ -56,11 +56,10 @@ export const runSubmitAction = async (
   state: FlowState,
   dependencies: FlowActionDependencies,
 ): Promise<FlowState> => {
-  const submit = dependencies.submit ?? ((signed: string) =>
-    postJson<{ txHash: string }>("/api/submit-tx", { signedTxCbor: signed }))
+  const submit = dependencies.submit ?? workshop.submit
   const { txHash } = await submit(state.artifacts.signed)
   if (state.artifacts.txHash && state.artifacts.txHash !== txHash) {
-    throw new Error(`backend_tx_hash_mismatch: returned=${txHash} calculated=${state.artifacts.txHash}`)
+    throw new Error(`provider_tx_hash_mismatch: returned=${txHash} calculated=${state.artifacts.txHash}`)
   }
   return setSubmitted(state, txHash)
 }
@@ -69,8 +68,7 @@ export const runCheckAction = async (
   state: FlowState,
   dependencies: FlowActionDependencies,
 ): Promise<FlowState> => {
-  const check = dependencies.checkStatus ?? ((txHash: string) =>
-    getJson<TxStatusResponse>(`/api/transactions/${txHash}/status`))
+  const check = dependencies.checkStatus ?? workshop.checkStatus
   const result = await check(state.artifacts.txHash)
 
   if (result.status === "included") return setIncluded(state, result)

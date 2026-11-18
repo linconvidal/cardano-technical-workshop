@@ -5,9 +5,10 @@ import {
   type MessageKey,
   type MessageRef,
 } from "../../../packages/localization/src/index.js"
-import type { WorkbenchReadiness } from "./readiness.js"
+import { getWorkbenchNetwork, type WorkbenchReadiness } from "./readiness.js"
 import { select } from "./workbench-ui.js"
 import { discoverWallets } from "./wallet.js"
+import { executionMode } from "./execution-mode.js"
 
 export const populateWalletOptions = (
   locale: Locale,
@@ -34,10 +35,9 @@ export const populateWalletOptions = (
 export const renderReadiness = (readiness: WorkbenchReadiness, locale: Locale) => {
   const response = readiness.response
   renderNetwork(readiness, locale)
-  setReadinessItem("backendReadiness", readiness.error ? "error" : response ? "ready" : "checking", locale)
   setReadinessItem(
     "providerReadiness",
-    response?.provider.healthy ? "ready" : response?.provider.configured ? "warning" : response ? "error" : "checking",
+    readiness.checking ? "checking" : response?.provider.healthy ? "ready" : response?.provider.configured ? "warning" : "error",
     locale,
   )
   setReadinessItem("walletExtensionReadiness", discoverWallets(locale).length > 0 ? "ready" : "error", locale)
@@ -50,10 +50,12 @@ export const renderReadiness = (readiness: WorkbenchReadiness, locale: Locale) =
 
   const message = select<HTMLElement>("#readinessMessage")
   if (readiness.checking) setReadinessMessage(message, messageRef("readiness.message.checking"), "info", locale)
-  else if (readiness.error) setReadinessMessage(message, messageRef("readiness.message.error"), "error", locale)
+  else if (readiness.error) setReadinessMessage(message, messageRef(
+    executionMode === "static" ? "static.readiness.message.error" : "readiness.message.error",
+  ), "error", locale)
   else if (!response?.provider.configured) setReadinessMessage(
     message,
-    messageRef("readiness.message.providerMissing"),
+    messageRef(executionMode === "static" ? "static.readiness.message.providerMissing" : "readiness.message.providerMissing"),
     "error",
     locale,
   )
@@ -88,7 +90,7 @@ export const renderReadiness = (readiness: WorkbenchReadiness, locale: Locale) =
 
 const renderNetwork = (readiness: WorkbenchReadiness, locale: Locale) => {
   const element = select<HTMLElement>("#workbenchNetwork")
-  const network = readiness.response?.network.name.trim()
+  const network = getWorkbenchNetwork(readiness).name.trim()
   if (network) {
     element.textContent = network
       .split(/[-_\s]+/)
@@ -126,7 +128,6 @@ const statusKeys = {
 } as const satisfies Record<ReadinessStatus, MessageKey>
 
 const itemKeys = {
-  backendReadiness: "readiness.item.backend",
   providerReadiness: "readiness.item.provider",
   walletExtensionReadiness: "readiness.item.extension",
   walletNetworkReadiness: "readiness.item.network",

@@ -1,157 +1,82 @@
+import { ApiError, type ApiProblem } from "../../../packages/cardano/src/workshop/api-error.js"
 import {
-  formatMessage,
   isMessageRef,
   messageRef,
   resolveLocale,
-  type Locale,
   type MessageRef,
 } from "../../../packages/localization/src/index.js"
 
-export type ApiProblem = {
-  code: string
-  message: string
-  messageRef?: MessageRef
-  retryable: boolean
-  field?: string
-  guidance?: string
-  guidanceRef?: MessageRef
-  technicalDetail?: string
-}
+export const getJson = <T>(url: string): Promise<T> => requestJson<T>(url)
 
-export class HttpError extends Error {
-  constructor(
-    readonly status: number,
-    readonly problem: ApiProblem,
-  ) {
-    super(problem.message)
-    this.name = "HttpError"
-  }
-}
-
-export const getJson = async <T>(url: string): Promise<T> => requestJson<T>(url)
-
-export const postJson = async <T>(url: string, body: unknown): Promise<T> => requestJson<T>(url, {
+export const postJson = <T>(url: string, body: unknown): Promise<T> => requestJson<T>(url, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body),
 })
 
 const requestJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
-  const locale = activeLocale()
   const headers = new Headers(init?.headers)
-  headers.set("Accept-Language", locale)
+  headers.set("Accept-Language", resolveLocale(globalThis.document?.documentElement.lang))
 
   let response: Response
+  let text: string
   try {
     response = await fetch(url, { ...init, headers })
+    text = await response.text()
   } catch (error) {
-    throw new HttpError(0, localProblem(
-      "backend_unreachable",
-      messageRef("http.backendUnreachable.message"),
-      locale,
-      true,
-      messageRef("http.backendUnreachable.guidance"),
-      error instanceof Error ? error.message : String(error),
-    ))
+    throw new ApiError(0, {
+      code: "backend_unreachable",
+      message: messageRef("http.backendUnreachable.message"),
+      guidance: messageRef("http.backendUnreachable.guidance"),
+      retryable: true,
+      technicalDetail: error instanceof Error ? error.message : String(error),
+    })
   }
 
-  const responseText = await response.text()
-  const payload = parseJsonResponse(responseText)
-
-  if (!response.ok) throw new HttpError(response.status, normalizeProblem(payload, responseText))
+  let payload: unknown
+  try { payload = JSON.parse(text) } catch { /* Report invalid responses below. */ }
+  if (!response.ok) throw new ApiError(response.status, normalizeProblem(payload, text))
   if (payload === undefined) {
-    throw new HttpError(response.status, localProblem(
-      "invalid_backend_response",
-      messageRef("http.invalidBackendResponse.message"),
-      locale,
-      true,
-      messageRef("http.invalidBackendResponse.guidance"),
-      responseText,
-    ))
+    // An unreadable success response cannot establish whether a submission was accepted.
+    throw new ApiError(0, {
+      code: "invalid_backend_response",
+      message: messageRef("http.invalidBackendResponse.message"),
+      guidance: messageRef("http.invalidBackendResponse.guidance"),
+      retryable: true,
+      technicalDetail: text,
+    })
   }
-
   return payload as T
 }
 
-const normalizeProblem = (payload: unknown, responseText: string): ApiProblem => {
+const normalizeProblem = (payload: unknown, text: string): ApiProblem => {
   if (isRecord(payload) && isRecord(payload.error)) {
     const problem = payload.error
-    if (typeof problem.code === "string" && typeof problem.message === "string") {
-      return {
-        code: problem.code,
-        message: problem.message,
-        messageRef: transportedMessageRef(problem.messageKey, problem.messageValues),
-        retryable: problem.retryable === true,
-        field: typeof problem.field === "string" ? problem.field : undefined,
-        guidance: typeof problem.guidance === "string" ? problem.guidance : undefined,
-        guidanceRef: transportedMessageRef(problem.guidanceKey, problem.guidanceValues),
-        technicalDetail: typeof problem.technicalDetail === "string" ? problem.technicalDetail : undefined,
-      }
-    }
-  }
-
-  const locale = activeLocale()
-  if (isRecord(payload) && typeof payload.error === "string") {
-    const reference = messageRef("http.legacyApiError.message")
     return {
-      code: "legacy_api_error",
-      message: stripHtml(payload.error),
-      messageRef: reference,
-      retryable: true,
-      technicalDetail: responseText,
+      code: typeof problem.code === "string" ? problem.code : "backend_error",
+      message: transportedReference(problem.messageKey, problem.messageValues)
+        ?? messageRef("api.workshopActionFailed.message"),
+      guidance: transportedReference(problem.guidanceKey, problem.guidanceValues)
+        ?? messageRef("api.workshopActionFailed.guidance"),
+      retryable: problem.retryable === true,
+      field: typeof problem.field === "string" ? problem.field : undefined,
+      technicalDetail: typeof problem.technicalDetail === "string" ? problem.technicalDetail
+        : typeof problem.message === "string" ? problem.message : text,
     }
   }
-
-  const reference = responseText
-    ? messageRef("http.errorWithMessage.message")
-    : messageRef("http.errorWithoutContent.message")
   return {
-    code: "http_error",
-    message: formatMessage(reference, locale),
-    messageRef: reference,
+    code: "backend_error",
+    message: messageRef("api.workshopActionFailed.message"),
+    guidance: messageRef("api.workshopActionFailed.guidance"),
     retryable: true,
-    technicalDetail: stripHtml(responseText),
+    technicalDetail: text,
   }
 }
 
-const localProblem = (
-  code: string,
-  reference: MessageRef,
-  locale: Locale,
-  retryable: boolean,
-  guidanceRef?: MessageRef,
-  technicalDetail?: string,
-): ApiProblem => ({
-  code,
-  message: formatMessage(reference, locale),
-  messageRef: reference,
-  retryable,
-  guidance: guidanceRef ? formatMessage(guidanceRef, locale) : undefined,
-  guidanceRef,
-  technicalDetail,
-})
-
-const transportedMessageRef = (key: unknown, values: unknown): MessageRef | undefined => {
+const transportedReference = (key: unknown, values: unknown): MessageRef | undefined => {
   const candidate = { key, values }
   return isMessageRef(candidate) ? candidate : undefined
 }
 
-const activeLocale = (): Locale => {
-  const appliedLocale = globalThis.document?.documentElement.lang
-  return resolveLocale(appliedLocale || "pt-BR")
-}
-
-const parseJsonResponse = (responseText: string): unknown => {
-  if (!responseText.trim()) return undefined
-
-  try {
-    return JSON.parse(responseText)
-  } catch {
-    return undefined
-  }
-}
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
-
-const stripHtml = (value: string) => value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()

@@ -226,7 +226,7 @@ export const failAction = (state: FlowState, error: FlowError): FlowState => ({
 export const canRun = (
   state: FlowState,
   action: FlowAction,
-  readiness: { walletConnected: boolean; canBuild: boolean; backendReady: boolean },
+  readiness: { walletConnected: boolean; canBuild: boolean; providerReady: boolean },
 ): boolean => {
   if (state.busyAction) return false
 
@@ -236,8 +236,8 @@ export const canRun = (
     case "merge": return state.stage === "signed"
     case "submit": return (
       state.stage === "merged" || (state.stage === "submission-unknown" && state.unknownStatusChecked === true)
-    ) && isAcknowledged(state) && readiness.walletConnected && readiness.backendReady
-    case "check": return (state.stage === "submission-unknown" || state.stage === "submitted") && readiness.backendReady
+    ) && isAcknowledged(state) && readiness.walletConnected && readiness.providerReady
+    case "check": return (state.stage === "submission-unknown" || state.stage === "submitted") && readiness.providerReady
   }
 }
 

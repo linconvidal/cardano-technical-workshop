@@ -1,15 +1,13 @@
-import { Transaction, TransactionHash } from "@evolution-sdk/evolution"
 import express from "express"
 import { existsSync } from "node:fs"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import {
-  BlockfrostHttpError,
   getAddressReadiness,
   getBlockfrostReadiness,
   getTransactionInclusion,
-  makeWorkshopBlockfrostClient,
+  submitTransaction,
 } from "../../../packages/cardano/src/internal/blockfrost-client.js"
 import { PUBLIC_WORKSHOP_NETWORK_CONFIG } from "../../../packages/cardano/src/internal/network-config.js"
 import { buildPaymentTx } from "../../../packages/cardano/src/workshop/01-payment.js"
@@ -34,11 +32,9 @@ import {
 } from "../../../packages/localization/src/index.js"
 import {
   ApiError,
-  insufficientFundsProblem,
   localizeApiProblem,
-  workshopActionFailedProblem,
-  type ApiProblem,
-} from "./api-error.js"
+  toApiProblem,
+} from "../../../packages/cardano/src/workshop/api-error.js"
 import {
   parseEacMintRequest,
   parseEacRetireRequest,
@@ -52,7 +48,7 @@ import {
   parseSubmitTxRequest,
   parseTestnetAddress,
   parseTransactionHash,
-} from "./request-validation.js"
+} from "../../../packages/cardano/src/workshop/request-validation.js"
 
 export const app = express()
 app.disable("x-powered-by")
@@ -155,10 +151,13 @@ for (const prefix of ["/api/workshop/03-multisig", "/api/workshop/04-multisig"])
 
 app.post("/api/submit-tx", asyncRoute(async (req, res) => {
   const signedTxCbor = parseSubmitTxRequest(req.body)
-  const provider = makeWorkshopBlockfrostClient()
-  const txHash = await provider.submitTx(Transaction.fromCBORHex(signedTxCbor))
-
-  res.json({ txHash: TransactionHash.toHex(txHash) })
+  try {
+    res.json(await submitTransaction(signedTxCbor))
+  } catch (error) {
+    const { status, problem } = toApiProblem(error, process.env.BLOCKFROST_PROJECT_ID?.trim())
+    // An unclassified provider failure cannot establish that submission was rejected.
+    throw new ApiError(status === 422 ? 502 : status, problem)
+  }
 }))
 
 if (existsSync(distPath)) {
@@ -170,7 +169,7 @@ if (existsSync(distPath)) {
 }
 
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  const { status, problem } = toApiProblem(error)
+  const { status, problem } = toApiProblem(error, process.env.BLOCKFROST_PROJECT_ID?.trim())
   const locale = (res.locals.locale as Locale | undefined) ?? requestLocale(undefined)
   res.status(status).json({ error: localizeApiProblem(problem, locale) })
 })
@@ -181,163 +180,6 @@ export const startServer = () => app.listen(port, host, () => {
 
 const entrypoint = process.argv[1] ? resolve(process.argv[1]) : undefined
 if (entrypoint === fileURLToPath(import.meta.url)) startServer()
-
-const toApiProblem = (error: unknown): { status: number; problem: ApiProblem } => {
-  if (error instanceof ApiError) return { status: error.status, problem: error.problem }
-
-  if (error instanceof SyntaxError && "body" in error) {
-    return {
-      status: 400,
-      problem: {
-        code: "invalid_json",
-        message: messageRef("api.invalidJson.message"),
-        retryable: false,
-        guidance: messageRef("api.invalidJson.guidance"),
-        technicalDetail: redactTechnicalDetail(error.message),
-      },
-    }
-  }
-
-  if (error instanceof BlockfrostHttpError) {
-    const authenticationFailure = error.status === 401 || error.status === 403
-    const rateLimited = error.status === 429
-    return {
-      status: authenticationFailure || rateLimited ? 503 : 502,
-      problem: {
-        code: authenticationFailure
-          ? "provider_authentication_failed"
-          : rateLimited ? "provider_rate_limited" : "blockfrost_error",
-        message: authenticationFailure
-          ? messageRef("api.providerAuthenticationFailed.message")
-          : rateLimited
-            ? messageRef("api.providerRateLimited.message")
-            : messageRef("api.blockfrostError.message"),
-        retryable: rateLimited || error.status >= 500,
-        guidance: authenticationFailure
-          ? messageRef("api.providerAuthenticationFailed.guidance")
-          : rateLimited
-            ? messageRef("api.providerRateLimited.guidance")
-            : messageRef("api.blockfrostError.guidance"),
-        technicalDetail: redactTechnicalDetail(error.message),
-      },
-    }
-  }
-
-  const technicalDetail = redactTechnicalDetail(error instanceof Error ? error.message : String(error))
-  if (technicalDetail.includes("Set BLOCKFROST_PROJECT_ID")) {
-    return {
-      status: 503,
-      problem: {
-        code: "provider_not_ready",
-        message: messageRef("api.providerNotReady.message"),
-        retryable: false,
-        guidance: messageRef("api.providerNotReady.guidance"),
-        technicalDetail,
-      },
-    }
-  }
-
-  if (/No UTxO found|Multiple script UTxOs|Script UTxO .* not found/i.test(technicalDetail)) {
-    return {
-      status: 409,
-      problem: {
-        code: "script_utxo_unavailable",
-        message: messageRef("api.scriptUtxoUnavailable.message"),
-        retryable: true,
-        guidance: messageRef("api.scriptUtxoUnavailable.guidance"),
-        technicalDetail,
-      },
-    }
-  }
-
-  const insufficientFunds = insufficientFundsProblem(technicalDetail)
-  if (insufficientFunds) return insufficientFunds
-
-  if (/CIP-25|asset name|at most .* bytes/i.test(technicalDetail)) {
-    return {
-      status: 400,
-      problem: {
-        code: "invalid_asset_metadata",
-        message: messageRef("api.invalidAssetMetadata.message"),
-        retryable: false,
-        guidance: messageRef("api.invalidAssetMetadata.guidance"),
-        technicalDetail,
-      },
-    }
-  }
-
-  if (/CBOR|deseriali[sz]|decode|unexpected end/i.test(technicalDetail)) {
-    return {
-      status: 400,
-      problem: {
-        code: "invalid_transaction_cbor",
-        message: messageRef("api.invalidTransactionCbor.message"),
-        retryable: false,
-        guidance: messageRef("api.invalidTransactionCbor.guidance"),
-        technicalDetail,
-      },
-    }
-  }
-
-  if (/expired|validity interval|InvalidHereafter|outside.*validity/i.test(technicalDetail)) {
-    return {
-      status: 409,
-      problem: {
-        code: "transaction_expired",
-        message: messageRef("api.transactionExpired.message"),
-        retryable: false,
-        guidance: messageRef("api.transactionExpired.guidance"),
-        technicalDetail,
-      },
-    }
-  }
-
-  if (/BadInputsUTxO|already spent|UTxO.*spent/i.test(technicalDetail)) {
-    return {
-      status: 409,
-      problem: {
-        code: "input_already_spent",
-        message: messageRef("api.inputAlreadySpent.message"),
-        retryable: false,
-        guidance: messageRef("api.inputAlreadySpent.guidance"),
-        technicalDetail,
-      },
-    }
-  }
-
-  if (/429|rate.?limit|too many requests/i.test(technicalDetail)) {
-    return {
-      status: 503,
-      problem: {
-        code: "provider_rate_limited",
-        message: messageRef("api.providerRateLimited.message"),
-        retryable: true,
-        guidance: messageRef("api.providerRateLimitedCurrentStep.guidance"),
-        technicalDetail,
-      },
-    }
-  }
-
-  if (/401|403|unauthorized|forbidden|project.?id/i.test(technicalDetail)) {
-    return {
-      status: 503,
-      problem: {
-        code: "provider_authentication_failed",
-        message: messageRef("api.providerAuthenticationFailed.message"),
-        retryable: false,
-        guidance: messageRef("api.providerAuthenticationFailed.guidance"),
-        technicalDetail,
-      },
-    }
-  }
-
-  return workshopActionFailedProblem(technicalDetail)
-}
-
-const redactTechnicalDetail = (value: string): string => {
-  const projectId = process.env.BLOCKFROST_PROJECT_ID?.trim()
-  return projectId ? value.replaceAll(projectId, "[redacted Blockfrost project id]") : value
-}
 
 const requestLocale = (acceptLanguage: string | undefined): Locale => {
   if (!acceptLanguage) return resolveLocale()

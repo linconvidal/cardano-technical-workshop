@@ -10,7 +10,7 @@ import {
 type BlockfrostAmount = { unit: string; quantity: string }
 export type BlockfrostUtxo = ReturnType<typeof blockfrostUtxo>
 
-const protocolParameters = {
+export const protocolParameters = {
   min_fee_a: 44,
   min_fee_b: 155_381,
   pool_deposit: "500000000",

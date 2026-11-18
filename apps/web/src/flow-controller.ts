@@ -14,7 +14,7 @@ import {
 } from "./flow-actions.js"
 import { bindFlowView } from "./flow-bindings.js"
 import { toFlowError } from "./flow-errors.js"
-import { HttpError } from "./http.js"
+import { ApiError } from "../../../packages/cardano/src/workshop/api-error.js"
 import { flowInputFingerprint, validateFlowInputs } from "./flow-inputs.js"
 import {
   createFlowView,
@@ -421,4 +421,4 @@ const hasTransactionArtifacts = (state: FlowState): boolean => Boolean(
 )
 
 const isAmbiguousSubmissionError = (error: unknown): boolean =>
-  !(error instanceof HttpError) || error.status === 0 || error.status >= 500
+  !(error instanceof ApiError) || error.status === 0 || error.status >= 500

@@ -22,8 +22,7 @@ export const describeMultisig = (params: MultisigParams): MultisigDetails => {
   }
 }
 
-export const listMultisigScriptUtxos = async (params: MultisigParams) => {
-  const provider = makeWorkshopBlockfrostClient()
+export const listMultisigScriptUtxos = async (params: MultisigParams, provider = makeWorkshopBlockfrostClient()) => {
   const details = describeMultisig(params)
   const scriptAddress = Address.fromBech32(details.scriptAddress)
   const scriptUtxos = await provider.getUtxos(scriptAddress)
@@ -34,8 +33,7 @@ export const listMultisigScriptUtxos = async (params: MultisigParams) => {
   }
 }
 
-export const verifyMultisigScriptUtxo = async (scriptAddress: string, outRef: string) => {
-  const provider = makeWorkshopBlockfrostClient()
+export const verifyMultisigScriptUtxo = async (scriptAddress: string, outRef: string, provider = makeWorkshopBlockfrostClient()) => {
   const scriptUtxos = await provider.getUtxos(Address.fromBech32(scriptAddress))
   const selected = scriptUtxos.find((utxo) => UTxO.toOutRefString(utxo) === outRef)
   if (!selected) throw new Error(`Script UTxO ${outRef} not found at script address ${scriptAddress}`)
@@ -46,9 +44,12 @@ export const verifyMultisigScriptUtxo = async (scriptAddress: string, outRef: st
   }
 }
 
-export const buildMultisigLockTx = async (params: MultisigLockParams): Promise<TxBuildResult> => {
+export const buildMultisigLockTx = async (
+  params: MultisigLockParams,
+  provider = makeWorkshopBlockfrostClient(),
+): Promise<TxBuildResult> => {
   const details = describeMultisig(params)
-  const result = await makeWorkshopBlockfrostClient()
+  const result = await provider
     .withAddress(params.userAddress)
     .newTx()
     .payToAddress({
@@ -70,8 +71,10 @@ export const buildMultisigLockTx = async (params: MultisigLockParams): Promise<T
   }
 }
 
-export const buildMultisigUnlockTx = async (params: MultisigUnlockParams): Promise<TxBuildResult> => {
-  const provider = makeWorkshopBlockfrostClient()
+export const buildMultisigUnlockTx = async (
+  params: MultisigUnlockParams,
+  provider = makeWorkshopBlockfrostClient(),
+): Promise<TxBuildResult> => {
   const nativeScript = twoSignerScript(params.userAddress, params.secondSignerAddress)
   const details = describeMultisig(params)
   const scriptAddress = Address.fromBech32(details.scriptAddress)

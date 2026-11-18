@@ -15,7 +15,7 @@ import {
   TxOut,
 } from "@evolution-sdk/evolution"
 
-import { resolveLocale } from "../../../packages/localization/src/index.js"
+import { resolveLocale } from "../../../localization/src/index.js"
 import { localizeApiProblem, RequestValidationError } from "./api-error.js"
 import {
   parseEacMintRequest,

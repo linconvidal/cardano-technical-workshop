@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light" />
+    <link rel="icon" type="image/svg+xml" href="./Cardano-RGB_Logo-Icon-Black.svg" />
     <title data-i18n="page.title">Cardano Technical Workshop</title>
     <link rel="preconnect" href="https://api.fontshare.com" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -42,21 +43,15 @@
       <section class="card readiness-card" id="readinessPanel" aria-labelledby="readinessTitle">
         <div class="section-heading">
           <p class="eyebrow" data-i18n="readiness.eyebrow">Antes de começar</p>
-          <h2 id="readinessTitle" data-i18n="readiness.title">Prepare o ambiente</h2>
-          <p data-i18n="readiness.description">A construção usa o backend local e o Blockfrost. A chave privada permanece na extensão CIP-30.</p>
+          <div class="readiness-heading-row">
+            <h2 id="readinessTitle" data-i18n="readiness.title">Prepare o ambiente</h2>
+            <button id="configureProvider" hidden type="button" class="secondary provider-settings" aria-label="Configurar Blockfrost" title="Configurar Blockfrost" data-i18n-attr="aria-label:provider.configuration.button;title:provider.configuration.button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9.95,5.31L10.28,3.17L13.72,3.17L14.05,5.31L15.29,5.82L17.03,4.54L19.46,6.97L18.18,8.71L18.69,9.95L20.83,10.28L20.83,13.72L18.69,14.05L18.18,15.29L19.46,17.03L17.03,19.46L15.29,18.18L14.05,18.69L13.72,20.83L10.28,20.83L9.95,18.69L8.71,18.18L6.97,19.46L4.54,17.03L5.82,15.29L5.31,14.05L3.17,13.72L3.17,10.28L5.31,9.95L5.82,8.71L4.54,6.97L6.97,4.54L8.71,5.82Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <span>API key</span>
+            </button>
+          </div>
+          <p class="help" data-i18n="readiness.description" data-static-i18n="static.readiness.description">O frontend chama a API para construir e submeter transações. A credencial Blockfrost fica no backend; a chave privada permanece na wallet CIP-30.</p>
         </div>
-
-        <details class="setup-instructions">
-          <summary data-i18n="readiness.setup.summary">Primeira execução local: instalar e iniciar</summary>
-          <ol>
-            <li><span data-i18n="readiness.setup.step1.before">No terminal, entre na pasta do workshop e execute</span> <code>npm install</code>.</li>
-            <li><span data-i18n="readiness.setup.step2.before">Execute</span> <code>cp .env.example .env</code> <span data-i18n="readiness.setup.step2.after">e substitua somente o project id de exemplo por um projeto Blockfrost Preprod.</span></li>
-            <li><span data-i18n="readiness.setup.step3.before">Carregue o ambiente com</span> <code>set -a; source .env; set +a</code>.</li>
-            <li><span data-i18n="readiness.setup.step2.before">Execute</span> <code>npm run dev</code> <span data-i18n="readiness.setup.step4.after">e mantenha o terminal aberto.</span></li>
-            <li data-i18n="readiness.setup.step5">Volte a esta página. A verificação será repetida ao recarregar.</li>
-          </ol>
-          <p data-i18n="readiness.setup.warning">Não informe seed phrase, chave privada ou credencial Blockfrost nesta página.</p>
-        </details>
 
         <aside class="inspection-tool" aria-label="Ferramenta externa para inspeção de CBOR" data-i18n-attr="aria-label:readiness.inspector.ariaLabel">
           <div>
@@ -67,8 +62,7 @@
         </aside>
 
         <ol class="readiness-list" aria-label="Estado dos pré-requisitos" data-i18n-attr="aria-label:readiness.list.ariaLabel">
-          <li id="backendReadiness" data-status="checking"><span class="status-dot"></span><div><strong data-i18n="readiness.backend.title">Backend local</strong><small><span data-i18n="readiness.backend.help.before">Inicie com</span> <code>npm run dev</code>.</small></div></li>
-          <li id="providerReadiness" data-status="checking"><span class="status-dot"></span><div><strong data-i18n="readiness.provider.title">Blockfrost Preprod</strong><small><span data-i18n="readiness.provider.help.before">O backend precisa de</span> <code>BLOCKFROST_PROJECT_ID</code>.</small></div></li>
+          <li id="providerReadiness" data-status="checking"><span class="status-dot"></span><div><strong data-i18n="readiness.provider.title">Blockfrost Preprod</strong><small data-i18n="readiness.provider.help" data-static-i18n="static.readiness.provider.help">Configure BLOCKFROST_PROJECT_ID no ambiente do backend.</small></div></li>
           <li id="walletExtensionReadiness" data-status="checking"><span class="status-dot"></span><div><strong data-i18n="readiness.walletExtension.title">Wallet CIP-30</strong><small data-i18n="readiness.walletExtension.help">Instale e desbloqueie uma extensão compatível.</small></div></li>
           <li id="walletNetworkReadiness" data-status="pending"><span class="status-dot"></span><div><strong data-i18n="readiness.walletNetwork.title">Wallet em testnet</strong><small data-i18n="readiness.walletNetwork.help">Selecione Preprod na extensão antes de conectar.</small></div></li>
           <li id="walletFundingReadiness" data-status="pending"><span class="status-dot"></span><div><strong data-i18n="readiness.walletFunding.title">Saldo de tADA</strong><small data-i18n="readiness.walletFunding.help">A wallet precisa de ao menos um UTxO na Preprod para construir transações.</small></div></li>
@@ -131,7 +125,7 @@
         </div>
 
         <ol class="pipeline" aria-label="Progresso do pagamento" data-i18n-attr="aria-label:payment.progress.ariaLabel">
-          <li data-progress-step><span>1</span><div><strong data-i18n="common.build">Construir</strong><small data-i18n="payment.progress.build">O backend consulta UTxOs e calcula inputs, outputs, taxa e troco.</small></div></li>
+          <li data-progress-step><span>1</span><div><strong data-i18n="common.build">Construir</strong><small data-i18n="payment.progress.build" data-static-i18n="static.payment.progress.build">A API consulta UTxOs e calcula inputs, outputs, taxa e troco.</small></div></li>
           <li data-progress-step><span>2</span><div><strong data-i18n="common.sign">Assinar</strong><small data-i18n="payment.progress.sign">A extensão mostra a transação e produz um witness sem expor a chave.</small></div></li>
           <li data-progress-step><span>3</span><div><strong data-i18n="common.attach">Anexar</strong><small data-i18n="payment.progress.attach">A Workbench valida o witness contra o corpo e cria o signed CBOR.</small></div></li>
           <li data-progress-step><span>4</span><div><strong data-i18n="common.submit">Submeter</strong><small data-i18n="payment.progress.submit">Revise o efeito e envie a transação assinada à Preprod.</small></div></li>
@@ -202,7 +196,7 @@
         </div>
 
         <ol class="pipeline" aria-label="Progresso da transação com metadata" data-i18n-attr="aria-label:metadata.progress.ariaLabel">
-          <li data-progress-step><span>1</span><div><strong data-i18n="common.build">Construir</strong><small data-i18n="metadata.progress.build">O backend anexa o label 674 e calcula a transação.</small></div></li>
+          <li data-progress-step><span>1</span><div><strong data-i18n="common.build">Construir</strong><small data-i18n="metadata.progress.build" data-static-i18n="static.metadata.progress.build">A API anexa o label 674 e calcula a transação.</small></div></li>
           <li data-progress-step><span>2</span><div><strong data-i18n="common.sign">Assinar</strong><small data-i18n="metadata.progress.sign">A wallet autoriza a transação exata.</small></div></li>
           <li data-progress-step><span>3</span><div><strong data-i18n="common.attach">Anexar</strong><small data-i18n="metadata.progress.attach">O witness validado vira parte do signed CBOR.</small></div></li>
           <li data-progress-step><span>4</span><div><strong data-i18n="common.submit">Submeter</strong><small data-i18n="metadata.progress.submit">A mensagem e o pagamento são enviados à Preprod.</small></div></li>

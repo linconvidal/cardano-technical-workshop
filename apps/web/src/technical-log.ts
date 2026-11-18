@@ -5,16 +5,28 @@ import {
   type Locale,
   type MessageRef,
 } from "../../../packages/localization/src/index.js"
+import { ApiError } from "../../../packages/cardano/src/workshop/api-error.js"
+import { MessageError } from "./flow-errors.js"
 import { select, setVisible } from "./workbench-ui.js"
 
 export type LogLevel = "info" | "error"
-export type WorkbenchLogger = (message: MessageRef, level?: LogLevel, technicalDetail?: string) => void
+export type LogDetail = string | MessageRef
+export type WorkbenchLogger = (message: MessageRef, level?: LogLevel, technicalDetail?: LogDetail) => void
+
+export const errorLogDetail = (error: unknown): LogDetail => {
+  if (error instanceof ApiError) return error.problem.message
+  if (error instanceof MessageError) return error.technicalDetail ?? error.messageRef
+  return error instanceof Error ? error.message : String(error)
+}
+
+export const formatLogDetail = (detail: LogDetail | undefined, locale: Locale): string =>
+  detail === undefined ? "" : typeof detail === "string" ? detail : formatMessage(detail, locale)
 
 type TechnicalLogEntry = {
   timestamp: Date
   message: MessageRef
   level: LogLevel
-  technicalDetail?: string
+  technicalDetail?: LogDetail
 }
 
 export class TechnicalLogController {
@@ -75,7 +87,8 @@ export class TechnicalLogController {
       const element = document.createElement("span")
       element.className = "log-entry"
       element.dataset.level = entry.level
-      const detail = entry.technicalDetail ? `\n  ${entry.technicalDetail}` : ""
+      const text = formatLogDetail(entry.technicalDetail, locale)
+      const detail = text ? `\n  ${text}` : ""
       element.textContent = `${formatDateTime(entry.timestamp, locale, { timeStyle: "medium" })}  ${formatMessage(entry.message, locale)}${detail}\n`
       return element
     }))

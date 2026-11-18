@@ -4,7 +4,8 @@ import {
   type Locale,
   type MessageRef,
 } from "../../../packages/localization/src/index.js"
-import { HttpError, postJson } from "./http.js"
+import { ApiError } from "../../../packages/cardano/src/workshop/api-error.js"
+import { workshop } from "./workshop.js"
 import { inputValue, renderJson, select, setArtifactValue, setVisible } from "./workbench-ui.js"
 import type { WorkbenchLogger } from "./technical-log.js"
 import type { WalletSession } from "./wallet.js"
@@ -13,11 +14,6 @@ export type ScriptUtxo = {
   outRef: string
   lovelace: string
   assets: unknown
-}
-
-type ScriptUtxosResponse = {
-  scriptAddress: string
-  scriptUtxos: ReadonlyArray<ScriptUtxo>
 }
 
 type MultisigSetupConfig = {
@@ -35,10 +31,10 @@ export type AlertContent = {
 }
 
 export const multisigAlertContent = (error: unknown): AlertContent => {
-  if (error instanceof HttpError) {
+  if (error instanceof ApiError) {
     return {
-      message: error.problem.messageRef ?? messageRef("multisig.error.generic"),
-      guidance: error.problem.guidanceRef ?? messageRef("multisig.guidance.generic"),
+      message: error.problem.message,
+      guidance: error.problem.guidance ?? messageRef("multisig.guidance.generic"),
       technicalDetail: error.problem.technicalDetail ?? "",
     }
   }
@@ -141,10 +137,7 @@ export class MultisigSetupController {
       setArtifactValue(this.utxos, "")
       this.choicesContainer.replaceChildren()
       setVisible(this.choices, false)
-      const result = await postJson<Record<string, unknown>>(
-        "/api/workshop/03-multisig/describe",
-        this.payload(),
-      )
+      const result = await workshop.describeMultisig(this.payload())
       if (generation !== this.generation) return
 
       setArtifactValue(this.details, renderJson(result))
@@ -159,10 +152,7 @@ export class MultisigSetupController {
 
   private async listUtxos() {
     await this.run(this.listButton, messageRef("multisig.status.listing"), async (generation) => {
-      const result = await postJson<ScriptUtxosResponse>(
-        "/api/workshop/03-multisig/utxos",
-        this.payload(),
-      )
+      const result = await workshop.multisigUtxos(this.payload())
       if (generation !== this.generation) return
 
       setArtifactValue(this.utxos, renderJson(result))

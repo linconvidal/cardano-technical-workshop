@@ -1,4 +1,5 @@
-import { getJson } from "./http.js"
+import { PUBLIC_WORKSHOP_NETWORK_CONFIG } from "../../../packages/cardano/src/internal/network-config.js"
+import { workshop } from "./workshop.js"
 
 export type RuntimeNetworkConfig = {
   name: string
@@ -18,7 +19,6 @@ export type ReadinessResponse = {
     funded: boolean
     utxoCount: number
   }
-  note: string
 }
 
 export type WorkbenchReadiness = {
@@ -34,12 +34,14 @@ export const initialReadiness = (): WorkbenchReadiness => ({
   walletConnected: false,
 })
 
-export const checkReadiness = async (walletAddress?: string): Promise<ReadinessResponse> => {
-  const query = walletAddress ? `?address=${encodeURIComponent(walletAddress)}` : ""
-  return getJson<ReadinessResponse>(`/api/readiness${query}`)
-}
+export const checkReadiness = workshop.readiness
+
+// Preprod remains configured when a provider check fails; availability is checked separately.
+export const getWorkbenchNetwork = (state: WorkbenchReadiness): RuntimeNetworkConfig =>
+  state.response?.network ?? PUBLIC_WORKSHOP_NETWORK_CONFIG
 
 export const canBuildTransactions = (state: WorkbenchReadiness): boolean => Boolean(
+  !state.checking &&
   state.walletConnected &&
   state.response?.ok &&
   state.response.wallet?.funded,

@@ -1,3 +1,5 @@
+import { executionMode } from "./execution-mode.js"
+
 export const stepCodeFlowIds = [
   "payment",
   "metadata",
@@ -29,8 +31,8 @@ export const stepCodeSourcePaths = {
   wallet: "apps/web/src/wallet.ts",
   workbenchUi: "apps/web/src/workbench-ui.ts",
   flowController: "apps/web/src/flow-controller.ts",
-  server: "apps/api/src/server.ts",
   blockfrost: "packages/cardano/src/internal/blockfrost-client.ts",
+  server: "apps/api/src/server.ts",
 } as const
 
 type StepCodeSourceId = keyof typeof stepCodeSourcePaths
@@ -53,7 +55,7 @@ export type ExtractedCodeExcerpt = {
   endLine: number
 }
 
-const githubSourceRoot = "https://github.com/linconvidal/cardano-technical-workshop/blob"
+const githubSourceRoot = "https://github.com/cardano-foundation/cardano-technical-workshop/blob"
 
 export const githubSourceHref = (
   excerpt: ExtractedCodeExcerpt,
@@ -74,16 +76,20 @@ const attach: StepCodeExcerptDefinition = {
   until: "export const transactionHashFromCbor",
 }
 
-const submit: StepCodeExcerptDefinition = {
+const submit: StepCodeExcerptDefinition = executionMode === "api" ? {
   source: "server",
   from: 'app.post("/api/submit-tx"',
   until: "if (existsSync(distPath))",
+} : {
+  source: "blockfrost",
+  from: "export const submitTransaction",
+  until: "const blockfrostFetch",
 }
 
 const confirm: StepCodeExcerptDefinition = {
   source: "blockfrost",
   from: "export const getTransactionInclusion",
-  until: "export const deriveAddressFromSeed",
+  until: "export const submitTransaction",
 }
 
 const standardSteps = (

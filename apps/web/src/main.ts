@@ -14,13 +14,14 @@ import { MultisigSetupController } from "./multisig-setup.js"
 import {
   canBuildTransactions,
   checkReadiness,
+  getWorkbenchNetwork,
   initialReadiness,
   type WorkbenchReadiness,
 } from "./readiness.js"
 import { populateWalletOptions, renderReadiness } from "./readiness-view.js"
 import { SessionController } from "./session-controller.js"
 import { StepCodeController } from "./step-code-controller.js"
-import { TechnicalLogController } from "./technical-log.js"
+import { errorLogDetail, formatLogDetail, TechnicalLogController } from "./technical-log.js"
 import { createWorkbenchFlows } from "./workbench-flows.js"
 import {
   copyArtifact,
@@ -30,6 +31,15 @@ import {
   selectWithin,
 } from "./workbench-ui.js"
 import { connectWallet, type WalletSession } from "./wallet.js"
+import { setProjectId } from "./workshop.js"
+import { executionMode } from "./execution-mode.js"
+
+document.documentElement.dataset.executionMode = executionMode
+if (executionMode === "static") {
+  document.querySelectorAll<HTMLElement>("[data-static-i18n]").forEach((element) => {
+    element.dataset.i18n = element.dataset.staticI18n
+  })
+}
 
 const localeController = new LocaleController()
 hydrateArtifactBoxes(localeController.locale)
@@ -39,6 +49,8 @@ const exerciseNav = new ExerciseNavController()
 const stepCode = new StepCodeController(() => localeController.locale)
 
 const walletNameInput = select<HTMLSelectElement>("#walletName")
+const configureProviderButton = select<HTMLButtonElement>("#configureProvider")
+configureProviderButton.hidden = executionMode !== "static"
 const connectWalletButton = select<HTMLButtonElement>("#connectWallet")
 const addressOutput = select<HTMLElement>("#connectedAddress")
 const readinessMessage = select<HTMLElement>("#readinessMessage")
@@ -63,30 +75,30 @@ const flowControllers = createWorkbenchFlows({
   fundedReadiness: () => ({
     walletConnected: Boolean(walletSession),
     canBuild: canBuildTransactions(readiness),
-    backendReady: Boolean(readiness.response?.ok),
-    network: readiness.response?.network,
+    providerReady: Boolean(!readiness.checking && readiness.response?.ok),
+    network: getWorkbenchNetwork(readiness),
   }),
   eacRetirementReadiness: () => ({
     walletConnected: Boolean(walletSession),
     canBuild: Boolean(
       canBuildTransactions(readiness) && flowControllers.eacMint.snapshot().stage === "included",
     ),
-    backendReady: Boolean(readiness.response?.ok),
-    network: readiness.response?.network,
+    providerReady: Boolean(!readiness.checking && readiness.response?.ok),
+    network: getWorkbenchNetwork(readiness),
   }),
   multisigLockReadiness: () => ({
     walletConnected: Boolean(walletSession),
     canBuild: Boolean(canBuildTransactions(readiness) && multisigSetup?.isReadyForLock()),
-    backendReady: Boolean(readiness.response?.ok),
-    network: readiness.response?.network,
+    providerReady: Boolean(!readiness.checking && readiness.response?.ok),
+    network: getWorkbenchNetwork(readiness),
   }),
   scriptSpendReadiness: () => ({
     walletConnected: Boolean(walletSession),
     canBuild: Boolean(
-      walletSession && readiness.response?.ok && multisigSetup?.isReadyForUnlockBuild(),
+      walletSession && !readiness.checking && readiness.response?.ok && multisigSetup?.isReadyForUnlockBuild(),
     ),
-    backendReady: Boolean(readiness.response?.ok),
-    network: readiness.response?.network,
+    providerReady: Boolean(!readiness.checking && readiness.response?.ok),
+    network: getWorkbenchNetwork(readiness),
   }),
   multisigSetupReady: () => Boolean(multisigSetup?.isReadyForLock()),
   onChange: () => {
@@ -130,6 +142,18 @@ async function initialize() {
 }
 
 function bindWalletControls() {
+  configureProviderButton.addEventListener("click", async () => {
+    if (executionMode !== "static") return
+    if (multisigSetup?.isBusy() || Object.values(flowControllers).some((controller) => controller.isBusy())) return
+    const key = window.prompt(formatMessage(messageRef("provider.configuration.prompt"), localeController.locale))
+    if (key === null) return
+    try { setProjectId(key) }
+    catch {
+      window.alert(formatMessage(messageRef("provider.configuration.storageFailed"), localeController.locale))
+      return
+    }
+    await refreshReadiness(walletSession?.address)
+  })
   connectWalletButton.addEventListener("click", () => { void handleConnectWallet() })
   select<HTMLInputElement>("#multisigSecondSigner").addEventListener("input", () => {
     multisigSetup?.invalidate(messageRef("multisig.status.invalidated"))
@@ -151,11 +175,7 @@ async function handleConnectWallet() {
   setReadinessStatus(messageRef("wallet.status.authorizing"), "info")
 
   try {
-    const network = readiness.response?.network
-    if (!network) {
-      throw new MessageError("wallet_network_configuration", messageRef("wallet.error.networkConfiguration"))
-    }
-    walletSession = await connectWallet(providerKey, network)
+    walletSession = await connectWallet(providerKey, getWorkbenchNetwork(readiness))
     addressOutput.textContent = `${walletSession.providerName}: ${walletSession.address}`
     setDefaultAddresses(walletSession.address)
     invalidateWalletBoundFlows(previousAddress, walletSession.address)
@@ -170,7 +190,7 @@ async function handleConnectWallet() {
     readiness = { ...readiness, walletConnected: false, walletAddress: undefined }
     const reference = error instanceof MessageError ? error.messageRef : messageRef("wallet.status.connectFailed")
     setReadinessStatus(reference, "error")
-    log(messageRef("wallet.log.connectFailed"), "error", technicalDetail(error))
+    log(messageRef("wallet.log.connectFailed"), "error", errorLogDetail(error))
   } finally {
     connectWalletButton.removeAttribute("aria-busy")
     populateWalletOptions(localeController.locale, providerKey)
@@ -183,6 +203,7 @@ async function refreshReadiness(address?: string) {
   const generation = ++readinessGeneration
   readiness = { ...readiness, checking: true, error: undefined }
   renderReadiness(readiness, localeController.locale)
+  refreshControllers()
 
   try {
     const response = await checkReadiness(address)
@@ -195,14 +216,14 @@ async function refreshReadiness(address?: string) {
     }
   } catch (error) {
     if (generation !== readinessGeneration) return
+    const detail = errorLogDetail(error)
     readiness = {
-      ...readiness,
       checking: false,
-      error: technicalDetail(error),
+      error: formatLogDetail(detail, localeController.locale),
       walletConnected: Boolean(walletSession),
       walletAddress: walletSession?.address,
     }
-    log(messageRef("readiness.log.failed"), "error", technicalDetail(error))
+    log(messageRef("readiness.log.failed"), "error", detail)
   }
 
   renderReadiness(readiness, localeController.locale)
@@ -235,6 +256,8 @@ function setDefaultAddresses(address: string) {
 }
 
 function refreshControllers() {
+  configureProviderButton.disabled = readiness.checking || Boolean(multisigSetup?.isBusy()) ||
+    Object.values(flowControllers).some((controller) => controller.isBusy())
   Object.values(flowControllers).forEach((controller) => controller.refreshReadiness())
   multisigSetup?.refreshReadiness()
   exerciseNav.refresh()
@@ -286,7 +309,7 @@ function bindCopyButtons() {
           const errorRef = error instanceof MessageError ? error.messageRef : messageRef("clipboard.error.generic")
           clipboardState = { result: "failed", titleKey, error: errorRef }
           renderClipboardStatus()
-          log(messageRef("clipboard.log.failed", { target }), "error", technicalDetail(error))
+          log(messageRef("clipboard.log.failed", { target }), "error", errorLogDetail(error))
         })
         .finally(() => window.setTimeout(() => {
           button.dataset.copyState = "idle"
@@ -328,9 +351,4 @@ function renderClipboardStatus() {
 function setReadinessStatus(reference: MessageRef, tone: "info" | "warning" | "error") {
   readinessMessage.dataset.tone = tone
   readinessMessage.textContent = formatMessage(reference, localeController.locale)
-}
-
-function technicalDetail(error: unknown): string {
-  if (error instanceof MessageError) return error.technicalDetail ?? error.code
-  return error instanceof Error ? error.message : String(error)
 }

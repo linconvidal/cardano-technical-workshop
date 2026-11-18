@@ -1,5 +1,5 @@
 import { messageRef, type MessageRef } from "../../../packages/localization/src/index.js"
-import { HttpError } from "./http.js"
+import { ApiError } from "../../../packages/cardano/src/workshop/api-error.js"
 import type { FlowAction, FlowError } from "./workbench-state.js"
 
 export class MessageError extends Error {
@@ -26,7 +26,7 @@ export const toFlowError = (action: FlowAction, error: unknown): FlowError => {
     }
   }
 
-  if (action === "submit" && error instanceof HttpError && (error.status === 0 || error.status >= 500)) {
+  if (action === "submit" && error instanceof ApiError && (error.status === 0 || error.status >= 500)) {
     return {
       action,
       message: messageRef("flow.error.submissionUnknown.message"),
@@ -36,21 +36,21 @@ export const toFlowError = (action: FlowAction, error: unknown): FlowError => {
     }
   }
 
-  if (error instanceof HttpError && error.problem.code === "transaction_expired") {
+  if (error instanceof ApiError && error.problem.code === "transaction_expired") {
     return {
       action,
       message: messageRef("flow.error.transactionExpired.message"),
       guidance: messageRef("flow.error.transactionExpired.guidance"),
-      technicalDetail: error.problem.technicalDetail ?? error.problem.message,
+      technicalDetail: error.problem.technicalDetail ?? error.problem.code,
       retryable: false,
     }
   }
 
-  if (error instanceof HttpError) {
+  if (error instanceof ApiError) {
     return {
       action,
-      message: error.problem.messageRef ?? messageRef("flow.error.backend.message"),
-      guidance: error.problem.guidanceRef ?? actionGuidance(action),
+      message: error.problem.message,
+      guidance: error.problem.guidance ?? actionGuidance(action),
       technicalDetail: error.problem.technicalDetail,
       retryable: error.problem.retryable,
     }

@@ -5,7 +5,7 @@ import { messageRef, type Locale } from "../../../packages/localization/src/inde
 import { FlowController } from "./flow-controller.js"
 import { MessageError } from "./flow-errors.js"
 import type { FlowReadiness } from "./flow-renderer.js"
-import { postJson } from "./http.js"
+import { workshop } from "./workshop.js"
 import { inspectMultisigUnlock } from "./multisig-inspection.js"
 import {
   eacMintReview,
@@ -17,7 +17,7 @@ import {
   paymentReview,
 } from "./review-summary.js"
 import type { WorkbenchLogger } from "./technical-log.js"
-import { inputValue, type TxBuildResponse } from "./workbench-ui.js"
+import { inputValue } from "./workbench-ui.js"
 import { signWithWallet, type WalletSession } from "./wallet.js"
 
 export type WorkbenchFlowDependencies = {
@@ -45,7 +45,7 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       title: messageRef("flow.title.payment"),
       witnessIds: ["paymentWitness"],
       inputSelectors: ["#paymentRecipient", "#paymentLovelace"],
-      build: () => buildTx("/api/workshop/01-payment", {
+      build: () => workshop.payment({
         userAddress: dependencies.wallet().address,
         recipientAddress: inputValue("#paymentRecipient"),
         lovelace: inputValue("#paymentLovelace"),
@@ -66,7 +66,7 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       title: messageRef("flow.title.metadata"),
       witnessIds: ["metadataWitness"],
       inputSelectors: ["#metadataRecipient", "#metadataLovelace", "#metadataMessage"],
-      build: () => buildTx("/api/workshop/02-metadata", {
+      build: () => workshop.metadata({
         userAddress: dependencies.wallet().address,
         recipientAddress: inputValue("#metadataRecipient"),
         lovelace: inputValue("#metadataLovelace"),
@@ -88,7 +88,7 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       title: messageRef("flow.title.multisigLock"),
       witnessIds: ["multisigLockWitness"],
       inputSelectors: ["#multisigSecondSigner", "#multisigLockLovelace"],
-      build: () => buildTx("/api/workshop/03-multisig/lock", {
+      build: () => workshop.multisigLock({
         ...multisigPayload(),
         lovelace: inputValue("#multisigLockLovelace"),
       }),
@@ -120,7 +120,7 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
         summaryId: "multisigUnlockSignSummary",
         text: multisigUnlockReview,
       },
-      build: () => buildTx("/api/workshop/03-multisig/unlock", {
+      build: () => workshop.multisigUnlock({
         ...multisigPayload(),
         destinationAddress: inputValue("#multisigDestination"),
         lovelace: inputValue("#multisigUnlockLovelace"),
@@ -142,7 +142,7 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       title: messageRef("flow.title.eacMint"),
       witnessIds: ["eacMintWitness"],
       inputSelectors: ["#eacMintRecipient", "#eacMintMetadataJson"],
-      build: () => buildTx("/api/workshop/04a-mint-eac", {
+      build: () => workshop.eacMint({
         userAddress: dependencies.wallet().address,
         recipientAddress: inputValue("#eacMintRecipient"),
         metadataJson: inputValue("#eacMintMetadataJson"),
@@ -167,7 +167,7 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       title: messageRef("flow.title.eacRetire"),
       witnessIds: ["eacRetireWitness"],
       inputSelectors: ["#eacRetireMetadataJson"],
-      build: () => buildTx("/api/workshop/04a-retire-eac", {
+      build: () => workshop.eacRetire({
         userAddress: dependencies.wallet().address,
         metadataJson: inputValue("#eacRetireMetadataJson"),
       }),
@@ -191,7 +191,7 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
       title: messageRef("flow.title.mint"),
       witnessIds: ["mintWitness"],
       inputSelectors: ["#mintRecipient", "#mintTokenName", "#mintAmount", "#mintMetadataName", "#mintImage", "#mintDescription"],
-      build: () => buildTx("/api/workshop/04b-mint-cip25", {
+      build: () => workshop.mint({
         userAddress: dependencies.wallet().address,
         recipientAddress: inputValue("#mintRecipient"),
         tokenName: inputValue("#mintTokenName"),
@@ -219,9 +219,6 @@ export const createWorkbenchFlows = (dependencies: WorkbenchFlowDependencies) =>
 }
 
 export type WorkbenchFlowControllers = ReturnType<typeof createWorkbenchFlows>
-
-const buildTx = (url: string, body: Record<string, string>): Promise<TxBuildResponse> =>
-  postJson<TxBuildResponse>(url, body)
 
 const userAddressSigner = (details: Record<string, unknown> | undefined): ReadonlyArray<string> | undefined =>
   signerFromAddress(details?.userAddress)
@@ -272,7 +269,7 @@ const verifyUnlockSigningContext = async (
   if (typeof scriptAddress !== "string" || typeof scriptUtxo !== "string") {
     throw new MessageError("multisig_context_missing", messageRef("multisig.error.contextMissing"))
   }
-  await postJson("/api/workshop/03-multisig/verify-input", { scriptAddress, scriptUtxo })
+  await workshop.verifyInput({ scriptAddress, scriptUtxo })
 }
 
 export const ensureWalletIsRequiredSigner = (

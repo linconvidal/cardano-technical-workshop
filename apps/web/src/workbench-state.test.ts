@@ -21,7 +21,7 @@ import {
 } from "./workbench-state.js"
 import { hasProgress, parseSession, serializeSession } from "./workbench-session.js"
 
-const ready = { walletConnected: true, canBuild: true, backendReady: true }
+const ready = { walletConnected: true, canBuild: true, providerReady: true }
 
 test("standard flow advances only in build, sign, merge, submit, include order", () => {
   let state = createFlowState()
@@ -40,7 +40,7 @@ test("standard flow advances only in build, sign, merge, submit, include order",
 
   state = setAcknowledged(state, true)
   assert.equal(isAcknowledged(state), true)
-  assert.equal(canRun(state, "submit", { ...ready, backendReady: false }), false)
+  assert.equal(canRun(state, "submit", { ...ready, providerReady: false }), false)
   assert.equal(canRun(state, "submit", { ...ready, walletConnected: false }), false)
   assert.equal(canRun(state, "submit", ready), true)
 

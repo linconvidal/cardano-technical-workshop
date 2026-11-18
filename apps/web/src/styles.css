@@ -30,7 +30,8 @@
   --surface-raised: var(--white);
   --surface-soft: var(--grey-200);
   --success: var(--green-2);
-  --success-soft: var(--grey-50);
+  --success-strong: color-mix(in srgb, var(--green-2) 45%, var(--grey-1000));
+  --success-soft: color-mix(in srgb, var(--green-1) 12%, var(--grey-50));
   --warning: var(--red-1000);
   --warning-soft: var(--red-50);
   --danger: var(--red-1000);
@@ -350,6 +351,34 @@ small {
   margin-bottom: 0;
 }
 
+.readiness-heading-row {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.readiness-heading-row h2 {
+  margin: 0;
+  min-width: 0;
+}
+
+button.provider-settings {
+  border-color: var(--line-soft);
+  border-radius: 8px;
+  flex-shrink: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  gap: 7px;
+  min-height: 34px;
+  padding: 5px 10px;
+}
+
+@media (pointer: coarse) {
+  button.provider-settings { min-height: 44px; }
+}
+
 .setup-instructions {
   background: var(--surface-soft);
   border: 1px solid var(--line-soft);
@@ -638,7 +667,7 @@ small {
 
 .exercise-nav a[data-complete="true"] > span:first-child {
   align-items: center;
-  color: var(--blue-1000);
+  color: var(--success-strong);
   display: flex;
 }
 
@@ -1012,12 +1041,12 @@ input:invalid:not(:placeholder-shown) {
 
 .pipeline li[data-status="complete"] {
   background: var(--success-soft);
-  border-color: var(--grey-800);
+  border-color: var(--success-strong);
 }
 
 .pipeline li[data-status="complete"] > span {
   background: var(--success);
-  box-shadow: 0 0 0 1px var(--grey-1000);
+  box-shadow: 0 0 0 1px var(--success-strong);
   color: var(--grey-1000);
 }
 
@@ -1221,7 +1250,7 @@ input:invalid:not(:placeholder-shown) {
 
 .completion {
   align-items: center;
-  background: var(--near-black);
+  background: var(--success-strong);
   border: 0;
   border-radius: 18px;
   box-shadow: 0 12px 28px rgb(19 19 19 / 16%);
@@ -1235,7 +1264,6 @@ input:invalid:not(:placeholder-shown) {
 }
 
 .completion[data-completion-kind="step"] {
-  background: var(--grey-800);
   box-shadow: none;
 }
 
@@ -1244,7 +1272,7 @@ input:invalid:not(:placeholder-shown) {
   background: rgb(255 255 255 / 6%);
   border: 1px solid rgb(255 255 255 / 24%);
   border-radius: 50%;
-  color: var(--blue-1);
+  color: var(--green-1);
   display: flex;
   height: 44px;
   justify-content: center;
@@ -1268,7 +1296,7 @@ input:invalid:not(:placeholder-shown) {
 }
 
 .completion-label {
-  color: var(--blue-1);
+  color: var(--green-1);
   font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.08em;

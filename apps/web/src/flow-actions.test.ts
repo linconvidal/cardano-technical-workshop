@@ -43,7 +43,7 @@ test("successful response must match the hash calculated from signed CBOR", asyn
     () => runSubmitAction(preparedState(), dependencies({
       submit: async () => ({ txHash: "b".repeat(64) }),
     })),
-    /backend_tx_hash_mismatch/,
+    /provider_tx_hash_mismatch/,
   )
 
   const submitted = await runSubmitAction(preparedState(), dependencies({

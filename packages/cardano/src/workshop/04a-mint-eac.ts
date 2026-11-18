@@ -31,7 +31,10 @@ export const EAC_REMAINING_AMOUNT = EAC_ISSUANCE_AMOUNT - EAC_RETIREMENT_AMOUNT
 const EAC_TX_TTL_MS = 3 * 60 * 60 * 1000
 const MINT_OUTPUT_MIN_LOVELACE = 5_000_000n
 
-export const buildEacMintTx = async (params: EacMintBuildParams): Promise<TxBuildResult> => {
+export const buildEacMintTx = async (
+  params: EacMintBuildParams,
+  provider = makeWorkshopBlockfrostClient(),
+): Promise<TxBuildResult> => {
   const userAddress = Address.fromBech32(params.userAddress)
   const recipientAddress = Address.fromBech32(params.recipientAddress)
   const userKeyHash = expectKeyHash(userAddress.paymentCredential, "user payment credential")
@@ -50,7 +53,6 @@ export const buildEacMintTx = async (params: EacMintBuildParams): Promise<TxBuil
   const assetNameHex = bytesToHex(assetNameBytes)
 
   const transactionMetadata = eacIssuanceMetadata(params.metadata)
-  const provider = makeWorkshopBlockfrostClient()
   const existingBalance = await eacBalanceOf(provider, userAddress, policyIdHex, assetNameHex)
   if (existingBalance !== 0n) {
     throw new Error("The wallet already holds this workshop EAC. Use a clean wallet or complete retirement before issuing again.")
@@ -100,7 +102,10 @@ export const buildEacMintTx = async (params: EacMintBuildParams): Promise<TxBuil
   }
 }
 
-export const buildEacRetirementTx = async (params: EacRetireBuildParams): Promise<TxBuildResult> => {
+export const buildEacRetirementTx = async (
+  params: EacRetireBuildParams,
+  provider = makeWorkshopBlockfrostClient(),
+): Promise<TxBuildResult> => {
   const userAddress = Address.fromBech32(params.userAddress)
   const userKeyHash = expectKeyHash(userAddress.paymentCredential, "user payment credential")
   const slotConfig = WORKSHOP_NETWORK_CONFIG.evolutionNetwork.slotConfig
@@ -113,7 +118,6 @@ export const buildEacRetirementTx = async (params: EacRetireBuildParams): Promis
   const assetNameBytes = textToAssetNameBytes(EAC_ASSET_NAME)
   const assetNameHex = bytesToHex(assetNameBytes)
 
-  const provider = makeWorkshopBlockfrostClient()
   const existingBalance = await eacBalanceOf(provider, userAddress, policyIdHex, assetNameHex)
   if (existingBalance !== EAC_ISSUANCE_AMOUNT) {
     throw eacRetirementIndexedAmountError(existingBalance)

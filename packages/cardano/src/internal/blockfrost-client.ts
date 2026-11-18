@@ -1,10 +1,6 @@
-import { readFileSync } from "node:fs"
-
-import { Address, Client } from "@evolution-sdk/evolution"
+import { Client, Transaction, TransactionHash } from "@evolution-sdk/evolution"
 
 import { WORKSHOP_NETWORK_CONFIG } from "./network-config.js"
-
-const SEED_PATH = ".seedphrase"
 
 export type BlockfrostReadiness = {
   configured: boolean
@@ -36,31 +32,26 @@ export class BlockfrostHttpError extends Error {
   }
 }
 
-export const loadMnemonic = (path = SEED_PATH): string => {
-  const fromEnv = process.env.WALLET_MNEMONIC?.trim()
-  if (fromEnv) return fromEnv
+const environmentProjectId = (): string | undefined =>
+  typeof process === "undefined" ? undefined : process.env.BLOCKFROST_PROJECT_ID?.trim()
 
-  return readFileSync(path, "utf8").trim()
-}
-
-const loadBlockfrostProjectId = (): string => {
-  const projectId = process.env.BLOCKFROST_PROJECT_ID?.trim()
+const loadBlockfrostProjectId = (projectId = environmentProjectId()): string => {
   if (projectId) return projectId
 
   throw new Error("Set BLOCKFROST_PROJECT_ID")
 }
 
-export const makeWorkshopBlockfrostClient = () => Client
+export const makeWorkshopBlockfrostClient = (projectId?: string) => Client
   .make(WORKSHOP_NETWORK_CONFIG.evolutionNetwork)
   .withBlockfrost({
     baseUrl: WORKSHOP_NETWORK_CONFIG.blockfrostBaseUrl,
-    projectId: loadBlockfrostProjectId(),
+    projectId: loadBlockfrostProjectId(projectId),
   })
 
 export const getBlockfrostReadiness = async (
   fetchImpl: typeof fetch = fetch,
+  projectId = environmentProjectId(),
 ): Promise<BlockfrostReadiness> => {
-  const projectId = process.env.BLOCKFROST_PROJECT_ID?.trim()
   if (!projectId) return { configured: false, reachable: false, healthy: false }
 
   try {
@@ -81,10 +72,11 @@ export const getBlockfrostReadiness = async (
 export const getAddressReadiness = async (
   address: string,
   fetchImpl: typeof fetch = fetch,
+  projectId?: string,
 ): Promise<AddressReadiness> => {
   const response = await blockfrostFetch(
     `/addresses/${encodeURIComponent(address)}/utxos?count=100`,
-    loadBlockfrostProjectId(),
+    loadBlockfrostProjectId(projectId),
     fetchImpl,
   )
 
@@ -99,10 +91,11 @@ export const getAddressReadiness = async (
 export const getTransactionInclusion = async (
   txHash: string,
   fetchImpl: typeof fetch = fetch,
+  projectId?: string,
 ): Promise<TransactionInclusion> => {
   const response = await blockfrostFetch(
     `/txs/${encodeURIComponent(txHash)}`,
-    loadBlockfrostProjectId(),
+    loadBlockfrostProjectId(projectId),
     fetchImpl,
   )
 
@@ -130,8 +123,11 @@ export const getTransactionInclusion = async (
   }
 }
 
-export const deriveAddressFromSeed = (mnemonic = loadMnemonic()): Address.Address =>
-  Address.fromSeed(mnemonic, { accountIndex: 0, networkId: WORKSHOP_NETWORK_CONFIG.networkId })
+export const submitTransaction = async (signedTxCbor: string, projectId?: string) => {
+  const provider = makeWorkshopBlockfrostClient(projectId)
+  const txHash = await provider.submitTx(Transaction.fromCBORHex(signedTxCbor))
+  return { txHash: TransactionHash.toHex(txHash) }
+}
 
 const blockfrostFetch = (
   path: string,
@@ -139,6 +135,7 @@ const blockfrostFetch = (
   fetchImpl: typeof fetch,
 ): Promise<Response> => fetchImpl(`${WORKSHOP_NETWORK_CONFIG.blockfrostBaseUrl}${path}`, {
   headers: { project_id: projectId },
+  signal: AbortSignal.timeout(15_000),
 })
 
 const requireOk = async (response: Response): Promise<void> => {
